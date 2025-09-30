@@ -29,7 +29,6 @@ env.bak/
 venv.bak/
 
 # Output files
-*.csv
 *.log
 
 # IDE
