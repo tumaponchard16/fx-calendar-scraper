@@ -20,6 +20,7 @@ import logging
 import subprocess
 import sys
 import re
+import argparse
 
 import logging
 import subprocess
@@ -63,13 +64,16 @@ def setup_browser(logger):
         logger.error("Make sure you have installed the browser with: python3 -m playwright install chromium")
         raise Exception(f"Failed to initialize Playwright browser: {str(e)}")
 
-def scrape_forexfactory_calendar():
+def scrape_forexfactory_calendar(url_params=None):
     """
     Main scraping function that extracts ForexFactory calendar events.
     
+    Args:
+        url_params (str): URL parameters to append to the base URL (e.g., "day=oct6.2025")
+    
     This function:
     1. Sets up logging
-    2. Initializes Chrome WebDriver 
+    2. Initializes Playwright browser 
     3. Navigates to ForexFactory calendar
     4. Extracts event data with dates
     5. Saves results to CSV file
@@ -87,8 +91,13 @@ def scrape_forexfactory_calendar():
     )
     logger = logging.getLogger(__name__)
     
-    # URL for October 2, 2025 specifically 
-    url = "https://www.forexfactory.com/calendar?day=oct2.2025"
+    # Build URL with custom parameters or default
+    base_url = "https://www.forexfactory.com/calendar"
+    if url_params:
+        url = f"{base_url}?{url_params}"
+    else:
+        url = f"{base_url}?day=oct2.2025"  # Default to October 2, 2025
+    
     logger.info(f"Starting scraper for URL: {url}")
 
     logger.info("Initializing Playwright browser...")
@@ -283,4 +292,27 @@ def scrape_forexfactory_calendar():
         logger.info("Scraper finished")
 
 if __name__ == "__main__":
-    scrape_forexfactory_calendar()
+    # Set up command line argument parser
+    parser = argparse.ArgumentParser(
+        description="ForexFactory Calendar Scraper - Educational purposes only",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python3 scraper.py                           # Default: October 2, 2025
+  python3 scraper.py --url-params "day=oct6.2025"     # October 6, 2025
+  python3 scraper.py --url-params "week=oct2.2025"    # Entire week of October 2, 2025
+  python3 scraper.py --url-params "day=nov15.2025"    # November 15, 2025
+        """
+    )
+    
+    parser.add_argument(
+        '--url-params',
+        type=str,
+        help='URL parameters for ForexFactory calendar (e.g., "day=oct6.2025", "week=oct2.2025")',
+        default=None
+    )
+    
+    args = parser.parse_args()
+    
+    # Run the scraper with provided parameters
+    scrape_forexfactory_calendar(url_params=args.url_params)

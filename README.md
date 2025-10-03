@@ -1,6 +1,11 @@
 # ForexFactory Calendar Scraper
 
-A Python web scraper that extracts economic events data from ForexFactory's economic calendar using Playwright automation.
+A Python web scraper that extracts economic events data from ## 🔧 Technical Details
+
+- **Browser**: Playwright Chromium automation
+- **Dependencies**: `playwright>=1.55.0`
+- **Compatibility**: Linux, macOS, Windows
+- **Default Target**: October 2, 2025 (configurable via command line)actory's economic calendar using Playwright automation.
 
 ## ⚠️ Educational Purpose Only
 
@@ -28,31 +33,47 @@ A Python web scraper that extracts economic events data from ForexFactory's econ
 
 3. **Run the scraper**:
    ```bash
+   # Default (October 2, 2025)
    python3 scraper.py
+   
+   # Specific date
+   python3 scraper.py --url-params "day=oct6.2025"
+   
+   # Entire week
+   python3 scraper.py --url-params "week=oct2.2025"
    ```
 
 ## 📊 Features
 
 - ✅ **Playwright automation** - Fast and reliable browser automation
-- ✅ **Date-specific scraping** - Currently configured for October 2, 2025
+- ✅ **Flexible date targeting** - Command line arguments for any date or week
 - ✅ **Comprehensive logging** - Debug and track scraping progress
 - ✅ **CSV export** - Clean, structured data output
 - ✅ **Complete event details**: Date, time, currency, impact, actual/forecast/previous values
 
-## ⚙️ Configuration
+## ⚙️ Usage Examples
 
-### Change Target Date
+### Command Line Options
 
-Modify the URL in `scraper.py` to target different dates:
+```bash
+# Show help and available options
+python3 scraper.py --help
 
-```python
-# Current setting (October 2, 2025)
-url = "https://www.forexfactory.com/calendar?day=oct2.2025"
+# Default: October 2, 2025
+python3 scraper.py
 
-# For different dates
-url = "https://www.forexfactory.com/calendar?day=oct15.2025"  # October 15
-url = "https://www.forexfactory.com/calendar?week=oct2.2025"  # Entire week
+# Specific date
+python3 scraper.py --url-params "day=oct6.2025"
+
+# Different date formats
+python3 scraper.py --url-params "day=nov15.2025"
+python3 scraper.py --url-params "day=dec25.2025"
+
+# Entire week
+python3 scraper.py --url-params "week=oct2.2025"
 ```
+
+### Configuration
 
 ### Headless Mode
 
