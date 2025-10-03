@@ -152,6 +152,9 @@ def scrape_forexfactory_calendar(url_params=None):
                 
                 # Try to extract event data
                 try:
+                    # Get the event detail ID from the row's data-event-id attribute
+                    detail_id = row.get_attribute("data-event-id") or ""
+                    
                     time_cell = row.locator(".calendar__time")
                     currency_cell = row.locator(".calendar__currency")
                     impact_cell = row.locator(".calendar__impact span")
@@ -169,6 +172,7 @@ def scrape_forexfactory_calendar(url_params=None):
                         "actual": (actual_cell.text_content() or "").strip(),
                         "forecast": (forecast_cell.text_content() or "").strip(),
                         "previous": (previous_cell.text_content() or "").strip(),
+                        "detail": detail_id,
                     }
                     
                     events.append(event_data)
@@ -230,6 +234,9 @@ def scrape_forexfactory_calendar(url_params=None):
                             
                             # Only add if we found at least an event name or currency
                             if event_text or currency_text:
+                                # Get the event detail ID from the row's data-event-id attribute
+                                detail_id = row.get_attribute("data-event-id") or ""
+                                
                                 event_data = {
                                     "date": current_date if current_date else "Unknown",
                                     "time": time_text,
@@ -239,6 +246,7 @@ def scrape_forexfactory_calendar(url_params=None):
                                     "actual": actual_text,
                                     "forecast": forecast_text,
                                     "previous": previous_text,
+                                    "detail": detail_id,
                                 }
                                 
                                 events.append(event_data)

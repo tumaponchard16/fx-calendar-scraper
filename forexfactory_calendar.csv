@@ -1,10 +1,10 @@
-date,time,currency,impact,event,actual,forecast,previous
-Mon Oct 6,All Day,AUD,Non-Economic,Bank Holiday,,,
-Mon Oct 6,8:00am,AUD,Low Impact Expected,MI Inflation Gauge m/m,,,-0.3%
-Mon Oct 6,,NZD,Low Impact Expected,ANZ Commodity Prices m/m,,,0.7%
-Mon Oct 6,All Day,CNY,Non-Economic,Bank Holiday,,,
-Mon Oct 6,3:00pm,CHF,Low Impact Expected,Unemployment Rate,,2.9%,2.9%
-Mon Oct 6,4:30pm,EUR,Low Impact Expected,Sentix Investor Confidence,,-7.5,-9.2
-Mon Oct 6,,GBP,Low Impact Expected,Construction PMI,,46.1,45.5
-Mon Oct 6,Tentative,GBP,Low Impact Expected,Housing Equity Withdrawal q/q,,-4.5B,-3.3B
-Mon Oct 6,5:00pm,EUR,Low Impact Expected,Retail Sales m/m,,0.1%,-0.5%
+date     , time     , currency, impact             , event                        , actual, forecast, previous, detail
+Mon Oct 6, All Day  , AUD     , Non-Economic       , Bank Holiday                 ,       ,         ,         , 140544
+Mon Oct 6, 8:00am   , AUD     , Low Impact Expected, MI Inflation Gauge m/m       ,       ,         , -0.3%   , 144102
+Mon Oct 6,          , NZD     , Low Impact Expected, ANZ Commodity Prices m/m     ,       ,         , 0.7%    , 145249
+Mon Oct 6, All Day  , CNY     , Non-Economic       , Bank Holiday                 ,       ,         ,         , 142143
+Mon Oct 6, 3:00pm   , CHF     , Low Impact Expected, Unemployment Rate            ,       , 2.9%    , 2.9%    , 140797
+Mon Oct 6, 4:30pm   , EUR     , Low Impact Expected, Sentix Investor Confidence   ,       , -7.5    , -9.2    , 142908
+Mon Oct 6,          , GBP     , Low Impact Expected, Construction PMI             ,       , 46.1    , 45.5    , 143415
+Mon Oct 6, Tentative, GBP     , Low Impact Expected, Housing Equity Withdrawal q/q,       , -4.5B   , -3.3B   , 141883
+Mon Oct 6, 5:00pm   , EUR     , Low Impact Expected, Retail Sales m/m             ,       , 0.1%    , -0.5%   , 145429
