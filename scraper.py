@@ -13,13 +13,7 @@ Author: Educational Project
 License: Educational Use Only
 """
 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import WebDriverException
+from playwright.sync_api import sync_playwright
 import time
 import csv
 import logging
@@ -31,92 +25,43 @@ import logging
 import subprocess
 import sys
 
-def check_chrome_installation():
-    """Check if Chrome/Chromium is installed and accessible"""
-    chrome_commands = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']
+def setup_browser(logger):
+    """Setup Playwright browser with options"""
     
-    for cmd in chrome_commands:
-        try:
-            result = subprocess.run([cmd, '--version'], capture_output=True, text=True)
-            if result.returncode == 0:
-                return cmd, result.stdout.strip()
-        except FileNotFoundError:
-            continue
-    
-    return None, None
-
-def setup_webdriver(logger):
-    """Setup WebDriver with fallback options"""
-    
-    # Check Chrome installation first
-    chrome_cmd, chrome_version = check_chrome_installation()
-    if not chrome_cmd:
-        logger.error("❌ Chrome/Chromium browser not found. Please install Chrome or Chromium:")
-        logger.error("   Ubuntu/Debian: sudo apt update && sudo apt install google-chrome-stable")
-        logger.error("   Or: sudo apt install chromium-browser")
-        raise WebDriverException("Chrome/Chromium browser not found")
-    
-    logger.info(f"Found browser: {chrome_cmd} - {chrome_version}")
-    
-    # Setup Chrome options
-    options = Options()
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--start-maximized")
-    options.add_argument("--disable-infobars")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--no-sandbox")  # Often needed on Linux
-    options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
-    
-    # Set binary location if using chromium
-    if 'chromium' in chrome_cmd:
-        options.binary_location = chrome_cmd
-    
-    # Uncomment to run headless
-    # options.add_argument("--headless=new")
+    logger.info("Initializing Playwright browser...")
     
     try:
-        # Try with automatic ChromeDriver management
-        logger.info("Attempting to initialize ChromeDriver (auto-managed)...")
-        driver = webdriver.Chrome(service=Service(), options=options)
-        logger.info("✅ ChromeDriver initialized successfully")
-        return driver
+        playwright = sync_playwright().start()
         
-    except WebDriverException as e:
-        logger.warning(f"Auto-managed ChromeDriver failed: {str(e)}")
+        # Launch browser with options
+        browser = playwright.chromium.launch(
+            headless=False,  # Set to True for headless mode
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--start-maximized",
+                "--disable-infobars",
+                "--disable-extensions",
+                "--no-sandbox",
+                "--disable-dev-shm-usage"
+            ]
+        )
         
-        # Try with webdriver-manager
-        try:
-            logger.info("Trying webdriver-manager for automatic ChromeDriver setup...")
-            from webdriver_manager.chrome import ChromeDriverManager
-            
-            service = Service(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=options)
-            logger.info("✅ ChromeDriver initialized with webdriver-manager")
-            return driver
-            
-        except ImportError:
-            logger.warning("webdriver-manager not installed. Install with: pip install webdriver-manager")
-        except Exception as e2:
-            logger.warning(f"webdriver-manager failed: {str(e2)}")
+        # Create a new context (like an incognito window)
+        context = browser.new_context(
+            viewport={'width': 1920, 'height': 1080},
+            user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        )
         
-        # Try with explicit ChromeDriver path (if available in PATH)
-        try:
-            logger.info("Trying explicit ChromeDriver path...")
-            service = Service('chromedriver')
-            driver = webdriver.Chrome(service=service, options=options)
-            logger.info("✅ ChromeDriver initialized with explicit path")
-            return driver
-            
-        except WebDriverException as e3:
-            logger.error(f"❌ All ChromeDriver initialization attempts failed:")
-            logger.error(f"   Error 1 (auto): {str(e)}")
-            logger.error(f"   Error 2 (explicit): {str(e3)}")
-            logger.error("\nTroubleshooting steps:")
-            logger.error("1. Install webdriver-manager: pip install webdriver-manager")
-            logger.error("2. Or manually download ChromeDriver from: https://chromedriver.chromium.org/")
-            logger.error("3. Make sure Chrome and ChromeDriver versions are compatible")
-            logger.error("4. Check if Chrome is properly installed")
-            raise WebDriverException("Failed to initialize ChromeDriver")
+        # Create a new page
+        page = context.new_page()
+        
+        logger.info("✅ Playwright browser initialized successfully")
+        return playwright, browser, context, page
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize Playwright browser: {str(e)}")
+        logger.error("Make sure you have installed the browser with: python3 -m playwright install chromium")
+        raise Exception(f"Failed to initialize Playwright browser: {str(e)}")
 
 def scrape_forexfactory_calendar():
     """
@@ -133,7 +78,7 @@ def scrape_forexfactory_calendar():
     """
     # Setup logging
     logging.basicConfig(
-        level=logging.INFO,  # Changed back to INFO for cleaner output
+        level=logging.DEBUG,  # Changed to DEBUG to see what's being skipped
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler('scraper.log'),
@@ -142,25 +87,24 @@ def scrape_forexfactory_calendar():
     )
     logger = logging.getLogger(__name__)
     
-    url = "https://www.forexfactory.com/calendar?week=oct8.2025"
+    # URL for October 2, 2025 specifically 
+    url = "https://www.forexfactory.com/calendar?day=oct2.2025"
     logger.info(f"Starting scraper for URL: {url}")
 
-    logger.info("Initializing Chrome WebDriver...")
-    driver = setup_webdriver(logger)
+    logger.info("Initializing Playwright browser...")
+    playwright, browser, context, page = setup_browser(logger)
 
     try:
         logger.info("Navigating to ForexFactory calendar page...")
-        driver.get(url)
+        page.goto(url)
 
         # Wait for the calendar table to load
         logger.info("Waiting for calendar table to load...")
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "table.calendar__table tbody tr"))
-        )
+        page.wait_for_selector("table.calendar__table tbody", timeout=15000)
         logger.info("Calendar table loaded successfully")
 
         # Grab all rows from the calendar table
-        rows = driver.find_elements(By.CSS_SELECTOR, "table.calendar__table tbody tr")
+        rows = page.locator("table.calendar__table tbody tr").all()
         logger.info(f"Found {len(rows)} rows in the calendar table")
 
         events = []
@@ -173,16 +117,16 @@ def scrape_forexfactory_calendar():
                 # Check if this row contains a date (check for day-breaker class)
                 row_classes = row.get_attribute("class") or ""
                 
-                if "day-breaker" in row_classes or "new-day" in row_classes:
+                if "day-breaker" in row_classes:
                     # This is a date header row - extract the date
                     try:
                         # Try to get date from the cell content
-                        date_cell = row.find_element(By.CSS_SELECTOR, "td")
-                        date_text = date_cell.text.strip()
+                        date_cell = row.locator("td").first
+                        date_text = date_cell.text_content() or ""
                         
                         if not date_text:
                             # If no text, try getting inner HTML and extract date
-                            cell_html = date_cell.get_attribute("innerHTML")
+                            cell_html = date_cell.inner_html()
                             # Extract text that looks like a date
                             import re
                             date_match = re.search(r'(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\w+\s+\d+)', cell_html)
@@ -198,36 +142,117 @@ def scrape_forexfactory_calendar():
                     continue
                 
                 # Try to extract event data
-                time_cell = row.find_element(By.CSS_SELECTOR, ".calendar__time")
-                currency_cell = row.find_element(By.CSS_SELECTOR, ".calendar__currency")
-                impact_cell = row.find_element(By.CSS_SELECTOR, ".calendar__impact span")
-                event_cell = row.find_element(By.CSS_SELECTOR, ".calendar__event")
-                actual_cell = row.find_element(By.CSS_SELECTOR, ".calendar__actual")
-                forecast_cell = row.find_element(By.CSS_SELECTOR, ".calendar__forecast")
-                previous_cell = row.find_element(By.CSS_SELECTOR, ".calendar__previous")
+                try:
+                    time_cell = row.locator(".calendar__time")
+                    currency_cell = row.locator(".calendar__currency")
+                    impact_cell = row.locator(".calendar__impact span")
+                    event_cell = row.locator(".calendar__event")
+                    actual_cell = row.locator(".calendar__actual")
+                    forecast_cell = row.locator(".calendar__forecast")
+                    previous_cell = row.locator(".calendar__previous")
 
-                event_data = {
-                    "date": current_date if current_date else "Unknown",
-                    "time": time_cell.text.strip(),
-                    "currency": currency_cell.text.strip(),
-                    "impact": impact_cell.get_attribute("title"),
-                    "event": event_cell.text.strip(),
-                    "actual": actual_cell.text.strip(),
-                    "forecast": forecast_cell.text.strip(),
-                    "previous": previous_cell.text.strip(),
-                }
-                
-                events.append(event_data)
-                processed_count += 1
-                
-                # Log progress every 10 events
-                if processed_count % 10 == 0:
-                    logger.info(f"Processed {processed_count} events so far...")
+                    event_data = {
+                        "date": current_date if current_date else "Unknown",
+                        "time": (time_cell.text_content() or "").strip(),
+                        "currency": (currency_cell.text_content() or "").strip(),
+                        "impact": (impact_cell.get_attribute("title") or "").strip(),
+                        "event": (event_cell.text_content() or "").strip(),
+                        "actual": (actual_cell.text_content() or "").strip(),
+                        "forecast": (forecast_cell.text_content() or "").strip(),
+                        "previous": (previous_cell.text_content() or "").strip(),
+                    }
+                    
+                    events.append(event_data)
+                    processed_count += 1
+                    
+                    # Log progress every 10 events
+                    if processed_count % 10 == 0:
+                        logger.info(f"Processed {processed_count} events so far...")
+                        
+                except Exception as event_error:
+                    # Try alternative approach for rows that might have different structure
+                    try:
+                        # Check if this row has any event-related content
+                        all_cells = row.locator("td").all()
+                        if len(all_cells) >= 7:  # Should have at least 7 columns for a valid event
+                            # Extract data using more flexible approach
+                            time_text = ""
+                            currency_text = ""
+                            impact_text = ""
+                            event_text = ""
+                            actual_text = ""
+                            forecast_text = ""
+                            previous_text = ""
+                            
+                            # Try to find time cell
+                            time_elements = row.locator(".calendar__time")
+                            if time_elements.count() > 0:
+                                time_text = (time_elements.first.text_content() or "").strip()
+                            
+                            # Try to find currency cell
+                            currency_elements = row.locator(".calendar__currency")
+                            if currency_elements.count() > 0:
+                                currency_text = (currency_elements.first.text_content() or "").strip()
+                            
+                            # Try to find impact cell
+                            impact_elements = row.locator(".calendar__impact span")
+                            if impact_elements.count() > 0:
+                                impact_text = (impact_elements.first.get_attribute("title") or impact_elements.first.text_content() or "").strip()
+                            
+                            # Try to find event cell
+                            event_elements = row.locator(".calendar__event")
+                            if event_elements.count() > 0:
+                                event_text = (event_elements.first.text_content() or "").strip()
+                            
+                            # Try to find actual cell
+                            actual_elements = row.locator(".calendar__actual")
+                            if actual_elements.count() > 0:
+                                actual_text = (actual_elements.first.text_content() or "").strip()
+                            
+                            # Try to find forecast cell
+                            forecast_elements = row.locator(".calendar__forecast")
+                            if forecast_elements.count() > 0:
+                                forecast_text = (forecast_elements.first.text_content() or "").strip()
+                            
+                            # Try to find previous cell
+                            previous_elements = row.locator(".calendar__previous")
+                            if previous_elements.count() > 0:
+                                previous_text = (previous_elements.first.text_content() or "").strip()
+                            
+                            # Only add if we found at least an event name or currency
+                            if event_text or currency_text:
+                                event_data = {
+                                    "date": current_date if current_date else "Unknown",
+                                    "time": time_text,
+                                    "currency": currency_text,
+                                    "impact": impact_text,
+                                    "event": event_text,
+                                    "actual": actual_text,
+                                    "forecast": forecast_text,
+                                    "previous": previous_text,
+                                }
+                                
+                                events.append(event_data)
+                                processed_count += 1
+                                logger.debug(f"Recovered event from row {i+1}: {event_text}")
+                                
+                                # Log progress every 10 events
+                                if processed_count % 10 == 0:
+                                    logger.info(f"Processed {processed_count} events so far...")
+                            else:
+                                skipped_count += 1
+                                logger.debug(f"Skipped row {i+1}: No event content found")
+                        else:
+                            skipped_count += 1
+                            logger.debug(f"Skipped row {i+1}: Insufficient columns ({len(all_cells)})")
+                    except Exception as fallback_error:
+                        skipped_count += 1
+                        logger.debug(f"Skipped row {i+1}: {str(event_error)} | Fallback failed: {str(fallback_error)}")
                     
             except Exception as e:
-                # Some rows may be headers/separators
+                # Some rows may be headers/separators or completely unrelated content
                 skipped_count += 1
-                logger.debug(f"Skipped row {i+1}: {str(e)}")
+                logger.debug(f"Skipped row {i+1} entirely: {str(e)}")
                 continue
 
         logger.info(f"Scraping completed. Processed: {processed_count} events, Skipped: {skipped_count} rows")
@@ -250,9 +275,11 @@ def scrape_forexfactory_calendar():
         logger.error(f"❌ An error occurred during scraping: {str(e)}")
         raise
     finally:
-        logger.info("Closing WebDriver...")
+        logger.info("Closing browser...")
         time.sleep(2)
-        driver.quit()
+        context.close()
+        browser.close()
+        playwright.stop()
         logger.info("Scraper finished")
 
 if __name__ == "__main__":
