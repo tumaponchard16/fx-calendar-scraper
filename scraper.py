@@ -36,7 +36,7 @@ def setup_browser(logger):
         
         # Launch browser with options
         browser = playwright.chromium.launch(
-            headless=False,  # Set to True for headless mode
+            headless=True,  # Set to True for headless mode
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--start-maximized",
@@ -95,10 +95,14 @@ def scrape_forexfactory_calendar(url_params=None):
     base_url = "https://www.forexfactory.com/calendar"
     if url_params:
         url = f"{base_url}?{url_params}"
+        filename = f"{url_params}.csv"
     else:
-        url = f"{base_url}?day=oct2.2025"  # Default to October 2, 2025
+        url_params = "day=oct2.2025"  # Default to October 2, 2025
+        url = f"{base_url}?{url_params}"
+        filename = f"{url_params}.csv"
     
     logger.info(f"Starting scraper for URL: {url}")
+    logger.info(f"Output will be saved to: {filename}")
 
     logger.info("Initializing Playwright browser...")
     playwright, browser, context, page = setup_browser(logger)
@@ -277,13 +281,13 @@ def scrape_forexfactory_calendar(url_params=None):
         # Save to CSV
         if events:
             logger.info("Saving events to CSV file...")
-            with open("forexfactory_calendar.csv", "w", newline="", encoding="utf-8") as f:
+            with open(filename, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=events[0].keys())
                 writer.writeheader()
                 writer.writerows(events)
 
-            logger.info(f"✅ Successfully saved {len(events)} events to forexfactory_calendar.csv")
-            print(f"✅ Scraped {len(events)} events and saved to forexfactory_calendar.csv")
+            logger.info(f"✅ Successfully saved {len(events)} events to {filename}")
+            print(f"✅ Scraped {len(events)} events and saved to {filename}")
         else:
             logger.warning("⚠️ No events found to save")
             print("⚠️ No events found to save")
