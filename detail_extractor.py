@@ -79,10 +79,36 @@ def extract_event_specs(page, base_url, detail_id, logger):
         detail_url = f"{base_url}#detail={detail_id}"
         logger.debug(f"Extracting specs for detail ID {detail_id}")
         
-        # Navigate to the detail URL
-        page.goto(detail_url)
+        # Navigate to the detail URL - don't wait for networkidle as fragment changes don't trigger network requests
+        page.goto(detail_url, wait_until="domcontentloaded")
         
-        # Wait a bit for the page to load and for any JavaScript to execute
+        # Wait for JavaScript to process the URL fragment and load the detail
+        time.sleep(2)
+        
+        # Wait for the detail overlay/modal to appear
+        # Try multiple possible selectors for the detail container
+        detail_selectors = [
+            f"[data-event-id='{detail_id}']",
+            ".calendar__detail",
+            ".calendar-detail",
+            "#detail",
+            "[id*='detail']"
+        ]
+        
+        detail_found = False
+        for selector in detail_selectors:
+            try:
+                page.wait_for_selector(selector, timeout=3000)
+                detail_found = True
+                logger.debug(f"Found detail container with selector: {selector}")
+                break
+            except:
+                continue
+        
+        if not detail_found:
+            logger.debug(f"Could not find detail container for ID {detail_id}, waiting extra time...")
+        
+        # Wait for the page to fully render the detail content
         time.sleep(2)
         
         # Try multiple selectors for the specs table
@@ -152,7 +178,30 @@ def extract_event_specs(page, base_url, detail_id, logger):
                 logger.debug(f"Error processing row in specs table: {row_error}")
                 continue
         
-        logger.debug(f"Successfully extracted {len(specs_data)-1} spec fields for detail ID {detail_id}")
+        # Extract the full details URL from calendardetails__solo div
+        try:
+            solo_div = page.locator(".calendardetails__solo").first
+            if solo_div.count() > 0:
+                # Try to find the anchor tag within the solo div
+                link = solo_div.locator("a").first
+                if link.count() > 0:
+                    full_details_url = link.get_attribute("href")
+                    if full_details_url:
+                        # If it's a relative URL, make it absolute
+                        if full_details_url.startswith("/"):
+                            full_details_url = f"https://www.forexfactory.com{full_details_url}"
+                        specs_data["full_details_url"] = full_details_url
+                        logger.debug(f"Extracted full details URL: {full_details_url}")
+                    
+                    # Also extract the link text if available
+                    link_text = (link.text_content() or "").strip()
+                    if link_text:
+                        specs_data["full_details_link_text"] = link_text
+        except Exception as url_error:
+            logger.debug(f"Could not extract full details URL: {url_error}")
+        
+        field_names = [k for k in specs_data.keys() if k != 'detail_id']
+        logger.debug(f"Successfully extracted {len(field_names)} spec fields for detail ID {detail_id}: {field_names}")
         return specs_data if len(specs_data) > 1 else None
         
     except Exception as e:
@@ -201,15 +250,13 @@ def extract_event_details(csv_file="forexfactory_calendar.csv", base_date_param=
         logger.error(f"❌ Failed to read CSV file: {str(e)}")
         return
     
-    # Setup browser
-    playwright, browser, context, page = setup_browser(logger)
+    # Process each event with a fresh browser session
+    base_url = f"https://www.forexfactory.com/calendar?{base_date_param}"
+    all_specs = []
+    processed_count = 0
+    failed_count = 0
     
     try:
-        base_url = f"https://www.forexfactory.com/calendar?{base_date_param}"
-        all_specs = []
-        processed_count = 0
-        failed_count = 0
-        
         for i, event in enumerate(events):
             detail_id = event.get('detail', '').strip()
             
@@ -218,51 +265,77 @@ def extract_event_details(csv_file="forexfactory_calendar.csv", base_date_param=
                 failed_count += 1
                 continue
             
-            # Extract specs for this event
-            specs = extract_event_specs(page, base_url, detail_id, logger)
+            # Create a fresh browser session for each event to avoid caching issues
+            logger.debug(f"Creating new browser session for event {i+1}/{len(events)}")
+            playwright, browser, context, page = setup_browser(logger)
             
-            if specs:
-                # Add basic event info to specs
-                specs.update({
-                    'event_date': event.get('date', ''),
-                    'event_time': event.get('time', ''),
-                    'event_currency': event.get('currency', ''),
-                    'event_name': event.get('event', ''),
-                })
-                all_specs.append(specs)
-                processed_count += 1
+            try:
+                # Extract specs for this event with fresh session
+                specs = extract_event_specs(page, base_url, detail_id, logger)
                 
-                # Log progress
-                if processed_count % 5 == 0:
-                    logger.info(f"Processed {processed_count} event details so far...")
-            else:
-                failed_count += 1
+                if specs:
+                    # Add basic event info to specs
+                    specs.update({
+                        'event_date': event.get('date', ''),
+                        'event_time': event.get('time', ''),
+                        'event_currency': event.get('currency', ''),
+                        'event_name': event.get('event', ''),
+                    })
+                    all_specs.append(specs)
+                    processed_count += 1
+                    
+                    # Log progress
+                    if processed_count % 5 == 0:
+                        logger.info(f"Processed {processed_count} event details so far...")
+                else:
+                    failed_count += 1
             
-            # Small delay between requests to be respectful
-            time.sleep(1)
+            finally:
+                # Always close the browser session
+                try:
+                    context.close()
+                    browser.close()
+                    playwright.stop()
+                except:
+                    pass
+            
+            # Delay between requests to prevent rate limiting
+            # Longer delay every 5 events to be extra respectful
+            if (i + 1) % 5 == 0:
+                delay = 5  # 5 seconds every 5 events
+                logger.info(f"Waiting {delay} seconds (batch delay to prevent rate limiting)...")
+                time.sleep(delay)
+            else:
+                delay = 3  # 3 seconds between events
+                logger.debug(f"Waiting {delay} seconds...")
+                time.sleep(delay)
+        
         
         logger.info(f"Detail extraction completed. Processed: {processed_count}, Failed: {failed_count}")
         
-        # Save detailed specs to CSV
+        # Save detailed specs to CSV with filename based on date parameter
         if all_specs:
-            output_file = "forexfactory_event_details.csv"
-            logger.info(f"Saving detailed specifications to {output_file}...")
+            output_file = f"{base_date_param}_details.csv"
+            logger.info(f"Saving detailed specifications to {output_file} (vertical block format)...")
             
-            # Get all possible fieldnames from all specs
-            all_fieldnames = set()
-            for spec in all_specs:
-                all_fieldnames.update(spec.keys())
-            
-            # Sort fieldnames for consistent ordering
-            fieldnames = ['detail_id', 'event_date', 'event_time', 'event_currency', 'event_name'] + \
-                        sorted([f for f in all_fieldnames if f not in ['detail_id', 'event_date', 'event_time', 'event_currency', 'event_name']])
-            
+            # Create vertical block format: each event as a self-contained block
             with open(output_file, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(all_specs)
+                writer = csv.writer(f)
+                
+                # Write each event as a block
+                for event_num, spec in enumerate(all_specs, start=1):
+                    # Event header
+                    writer.writerow(['event_id', event_num])
+                    
+                    # Write all fields for this event
+                    for field_name, field_value in spec.items():
+                        writer.writerow([field_name, field_value])
+                    
+                    # Separator line between events (except after last event)
+                    if event_num < len(all_specs):
+                        writer.writerow(['---', '---'])
             
-            logger.info(f"✅ Successfully saved {len(all_specs)} detailed specifications to {output_file}")
+            logger.info(f"✅ Successfully saved {len(all_specs)} events (vertical block format) to {output_file}")
             print(f"✅ Extracted {len(all_specs)} event details and saved to {output_file}")
         else:
             logger.warning("⚠️ No event details found to save")
@@ -272,10 +345,6 @@ def extract_event_details(csv_file="forexfactory_calendar.csv", base_date_param=
         logger.error(f"❌ An error occurred during detail extraction: {str(e)}")
         raise
     finally:
-        logger.info("Closing browser...")
-        context.close()
-        browser.close()
-        playwright.stop()
         logger.info("Detail extractor finished")
 
 if __name__ == "__main__":

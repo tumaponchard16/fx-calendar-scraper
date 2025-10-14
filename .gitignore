@@ -52,3 +52,8 @@ Thumbs.db
 
 #logs
 *.log
+
+#generated files
+*.out
+*.csv
+*.txt
