@@ -6,6 +6,30 @@ A Python web scraper that extracts economic events data from ForexFactory's econ
 
 **IMPORTANT**: This project is for educational purposes only. Use responsibly and respect website terms of service.
 
+## ⚠️ Legal And Usage Disclaimer
+
+This repository is not affiliated with, endorsed by, or sponsored by Forex Factory or Fair Economy, Inc.
+
+Before using this project, review Forex Factory's current notices and terms:
+
+- Terms / notices: https://www.forexfactory.com/notices#tos
+- Privacy policy / notices: https://www.forexfactory.com/notices
+
+Based on the publicly available notices page at the time of writing, Forex Factory states that:
+
+- copying, republication, or redistribution of its copyrighted content is prohibited without prior written consent;
+- the Fair Economy Economic Database (FEED), including calendar events, names, impact ratings, descriptions, specs, links, and historic data, is protected and may not be copied, republished, or redistributed in whole or in part;
+- users may not misuse the service or try to access it using a method other than the interface and instructions Fair Economy provides.
+
+That means this project may violate their terms or intellectual-property restrictions depending on how it is used, especially for bulk extraction, business use, republication, redistribution, or downstream product integration.
+
+This disclaimer does **not** eliminate legal risk or grant permission to scrape or reuse Forex Factory data. Users are solely responsible for:
+
+- reviewing the current Terms of Service and notices before use;
+- obtaining permission or legal advice where needed;
+- complying with applicable law, website terms, and intellectual-property restrictions;
+- avoiding redistribution or commercial reuse unless explicitly permitted.
+
 ## 🚀 Quick Start
 
 ### Python Environment
