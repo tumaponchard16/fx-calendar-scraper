@@ -53,19 +53,38 @@ python3 -m playwright install chromium
 python3 history_news_extractor.py
 
 # Specify custom CSV and date
-python3 history_news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 history_news_extractor.py --date-param "day=oct22.2025"
 ```
 
 ### Command-line Arguments
 
 | Argument | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `--csv-file` | Input CSV with events and detail IDs | `forexfactory_calendar.csv` | `day=oct22.2025.csv` |
+| `--csv-file` | Input CSV with events and detail IDs | `outputs/<date-folder>/{date_param}.csv` | `outputs/oct-22-2025/day=oct22.2025.csv` |
 | `--date-param` | Date parameter for URL construction | `day=oct6.2025` | `day=oct22.2025` |
+
+## Generation Order
+
+Run `scraper.py` first. That creates the base `day=...csv` file that this extractor reads.
+
+```bash
+python3 scraper.py --url-params "day=oct22.2025"
+python3 history_news_extractor.py --date-param "day=oct22.2025"
+```
+
+`history_news_extractor.py` does **not** require `day=oct22.2025_details.csv`. The details file is optional and only needed if you also want the event specification output from `detail_extractor.py`.
+
+If you want all four files for a date, a recommended sequence is:
+
+```bash
+python3 scraper.py --url-params "day=oct22.2025"
+python3 detail_extractor.py --date-param "day=oct22.2025"
+python3 history_news_extractor.py --date-param "day=oct22.2025"
+```
 
 ## Output Files
 
-### History CSV: `{date_param}_history.csv`
+### History CSV: `outputs/<date-folder>/{date_param}_history.csv`
 
 **Columns:**
 - `detail_id` - Event detail ID
@@ -85,7 +104,7 @@ detail_id,event_name,event_date,event_currency,date,date_url,actual,forecast,pre
 144521,Trade Balance,Wed Oct 22,JPY,"Aug 20, 2025",https://www.forexfactory.com/calendar?day=aug20.2025#detail=144519,-0.30T,-0.07T,-0.25T
 ```
 
-### News CSV: `{date_param}_news.csv`
+### News CSV: `outputs/<date-folder>/{date_param}_news.csv`
 
 **Columns:**
 - `detail_id` - Event detail ID
@@ -102,6 +121,13 @@ detail_id,event_name,event_date,event_currency,date,date_url,actual,forecast,pre
 detail_id,event_name,event_date,event_currency,title,url,snippet,link_type
 144726,API Weekly Statistical Bulletin,Wed Oct 22,USD,News,https://www.forexfactory.com/news,,news
 ```
+
+### What The Files Mean Together
+
+- `day=oct22.2025.csv`: master event list from the scraper.
+- `day=oct22.2025_details.csv`: optional event specification file from `detail_extractor.py`.
+- `day=oct22.2025_history.csv`: historical release values from `history_news_extractor.py`.
+- `day=oct22.2025_news.csv`: related news links from `history_news_extractor.py`.
 
 ## Technical Details
 
@@ -156,8 +182,8 @@ detail_id,event_name,event_date,event_currency,title,url,snippet,link_type
 
 **Sample Output:**
 ```
-✅ Extracted 6 history records and saved to day=oct22.2025_history.csv
-✅ Extracted 2 news items and saved to day=oct22.2025_news.csv
+✅ Extracted 6 history records and saved to outputs/oct-22-2025/day=oct22.2025_history.csv
+✅ Extracted 2 news items and saved to outputs/oct-22-2025/day=oct22.2025_news.csv
 ```
 
 ## Workflow Integration
@@ -166,31 +192,33 @@ detail_id,event_name,event_date,event_currency,title,url,snippet,link_type
 
 1. **Main Calendar Scraper** (`scraper.py`)
    ```bash
-   python3 scraper.py --url "https://www.forexfactory.com/calendar?day=oct22.2025"
+   python3 scraper.py --url-params "day=oct22.2025"
    ```
-   Output: `day=oct22.2025.csv` (basic event data with detail IDs)
+   Output: `outputs/oct-22-2025/day=oct22.2025.csv` (basic event data with detail IDs)
 
 2. **Detail Specifications** (`detail_extractor.py`)
    ```bash
-   python3 detail_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+   python3 detail_extractor.py --date-param "day=oct22.2025"
    ```
-   Output: `day=oct22.2025_details.csv` (specs, descriptions, full detail URLs)
+   Output: `outputs/oct-22-2025/day=oct22.2025_details.csv` (specs, descriptions, full detail URLs)
 
 3. **History and News** (`history_news_extractor.py`)
    ```bash
-   python3 history_news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+   python3 history_news_extractor.py --date-param "day=oct22.2025"
    ```
    Output: 
-   - `day=oct22.2025_history.csv` (historical values)
-   - `day=oct22.2025_news.csv` (related news)
+   - `outputs/oct-22-2025/day=oct22.2025_history.csv` (historical values)
+   - `outputs/oct-22-2025/day=oct22.2025_news.csv` (related news)
 
 ### File Relationships
 
 ```
-day=oct22.2025.csv (master)
-├── day=oct22.2025_details.csv (linked by detail_id)
-├── day=oct22.2025_history.csv (linked by detail_id)
-└── day=oct22.2025_news.csv (linked by detail_id)
+outputs/
+└── oct-22-2025/
+   ├── day=oct22.2025.csv (master)
+   ├── day=oct22.2025_details.csv (linked by detail_id)
+   ├── day=oct22.2025_history.csv (linked by detail_id)
+   └── day=oct22.2025_news.csv (linked by detail_id)
 ```
 
 All files can be joined using the `detail_id` field.
@@ -223,7 +251,7 @@ All files can be joined using the `detail_id` field.
 - **Debug level**: Detailed extraction progress
 - **Info level**: Major milestones and counts
 - **Error level**: Critical failures only
-- **Log file**: `history_news_extractor.log`
+- **Log file**: `outputs/logs/history_news_extractor.log`
 
 ## Known Limitations
 

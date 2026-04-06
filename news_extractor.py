@@ -12,50 +12,19 @@ Author: Educational Project
 License: Educational Use Only
 """
 
-from playwright.sync_api import sync_playwright
 import time
 import csv
-import logging
 import argparse
-import sys
-import os
 
-def setup_browser(logger):
-    """Setup Playwright browser with options"""
-    
-    logger.info("Initializing Playwright browser for news extraction...")
-    
-    try:
-        playwright = sync_playwright().start()
-        
-        # Launch browser with options
-        browser = playwright.chromium.launch(
-            headless=True,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--disable-infobars",
-                "--disable-extensions",
-                "--no-sandbox",
-                "--disable-dev-shm-usage"
-            ]
-        )
-        
-        # Create a new context (like an incognito window)
-        context = browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        )
-        
-        # Create a new page
-        page = context.new_page()
-        
-        logger.info("✅ Playwright browser initialized successfully")
-        return playwright, browser, context, page
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize Playwright browser: {str(e)}")
-        logger.error("Make sure you have installed the browser with: python3 -m playwright install chromium")
-        raise Exception(f"Failed to initialize Playwright browser: {str(e)}")
+from extractor_common import (
+    build_log_file_path,
+    build_output_file_path,
+    configure_logger,
+    display_path,
+    load_events,
+    resolve_primary_csv_path,
+    setup_browser,
+)
 
 def extract_related_news(page, detail_id, logger):
     """
@@ -220,7 +189,7 @@ def extract_event_news(page, base_url, detail_id, logger):
         logger.debug(f"Failed to extract news for detail ID {detail_id}: {str(e)}")
         return None
 
-def extract_all_news(csv_file="forexfactory_calendar.csv", base_date_param="day=oct6.2025"):
+def extract_all_news(csv_file=None, base_date_param="day=oct6.2025"):
     """
     Main function to extract news for all events
     
@@ -228,33 +197,19 @@ def extract_all_news(csv_file="forexfactory_calendar.csv", base_date_param="day=
         csv_file (str): Path to the main CSV file with events
         base_date_param (str): Date parameter for the base URL
     """
-    # Setup logging
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('news_extractor.log'),
-            logging.StreamHandler()
-        ]
-    )
-    logger = logging.getLogger(__name__)
-    
-    # Check if CSV file exists
-    if not os.path.exists(csv_file):
-        logger.error(f"❌ CSV file '{csv_file}' not found. Please run the main scraper first.")
+    logger = configure_logger(__name__, build_log_file_path("news_extractor"))
+
+    resolved_csv_file = resolve_primary_csv_path(csv_file, base_date_param)
+    if not resolved_csv_file:
+        missing_file = csv_file or f"{base_date_param}.csv"
+        logger.error(f"❌ CSV file '{missing_file}' not found. Please run the main scraper first.")
         return
     
-    logger.info(f"Starting news extraction from {csv_file}")
+    logger.info(f"Starting news extraction from {display_path(resolved_csv_file)}")
     
     # Read the main CSV file
-    events = []
     try:
-        with open(csv_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            reader.fieldnames = [field.strip() if field else field for field in reader.fieldnames]
-            for row in reader:
-                cleaned_row = {key.strip(): value.strip() if value else value for key, value in row.items()}
-                events.append(cleaned_row)
+        events = load_events(resolved_csv_file)
         logger.info(f"Found {len(events)} events to process")
     except Exception as e:
         logger.error(f"❌ Failed to read CSV file: {str(e)}")
@@ -277,7 +232,7 @@ def extract_all_news(csv_file="forexfactory_calendar.csv", base_date_param="day=
             
             # Create fresh browser session for each event
             logger.debug(f"Creating new browser session for event {i+1}/{len(events)}")
-            playwright, browser, context, page = setup_browser(logger)
+            playwright, browser, context, page = setup_browser(logger, "news extraction")
             
             try:
                 # Extract news with fresh session
@@ -329,8 +284,8 @@ def extract_all_news(csv_file="forexfactory_calendar.csv", base_date_param="day=
         
         # Save news to CSV
         if all_news:
-            news_file = f"{base_date_param}_news.csv"
-            logger.info(f"Saving news data to {news_file}...")
+            news_file = build_output_file_path(base_date_param, "_news")
+            logger.info(f"Saving news data to {display_path(news_file)}...")
             
             with open(news_file, 'w', newline='', encoding='utf-8') as f:
                 fieldnames = ['detail_id', 'event_name', 'event_date', 'event_currency',
@@ -339,8 +294,9 @@ def extract_all_news(csv_file="forexfactory_calendar.csv", base_date_param="day=
                 writer.writeheader()
                 writer.writerows(all_news)
             
-            logger.info(f"✅ Successfully saved {len(all_news)} news items to {news_file}")
-            print(f"✅ Extracted {len(all_news)} news items and saved to {news_file}")
+            news_display = display_path(news_file)
+            logger.info(f"✅ Successfully saved {len(all_news)} news items to {news_display}")
+            print(f"✅ Extracted {len(all_news)} news items and saved to {news_display}")
         else:
             logger.warning("⚠️ No news data found to save")
             print("⚠️ No news data found to save")
@@ -358,17 +314,15 @@ if __name__ == "__main__":
         epilog="""
 Examples:
   python3 news_extractor.py
-  python3 news_extractor.py --csv-file events.csv
   python3 news_extractor.py --date-param "day=oct22.2025"
-  python3 news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+    python3 news_extractor.py --csv-file outputs/oct-22-2025/day=oct22.2025.csv --date-param "day=oct22.2025"
         """
     )
     
     parser.add_argument(
         '--csv-file',
         type=str,
-        help='Path to the CSV file containing events with detail IDs',
-        default="forexfactory_calendar.csv"
+        help='Path to the CSV file containing events with detail IDs (defaults to the dated output CSV)'
     )
     
     parser.add_argument(

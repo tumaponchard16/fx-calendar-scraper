@@ -12,50 +12,19 @@ Author: Educational Project
 License: Educational Use Only
 """
 
-from playwright.sync_api import sync_playwright
 import time
 import csv
-import logging
 import argparse
-import sys
-import os
 
-def setup_browser(logger):
-    """Setup Playwright browser with options"""
-    
-    logger.info("Initializing Playwright browser for history extraction...")
-    
-    try:
-        playwright = sync_playwright().start()
-        
-        # Launch browser with options
-        browser = playwright.chromium.launch(
-            headless=True,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--disable-infobars",
-                "--disable-extensions",
-                "--no-sandbox",
-                "--disable-dev-shm-usage"
-            ]
-        )
-        
-        # Create a new context (like an incognito window)
-        context = browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        )
-        
-        # Create a new page
-        page = context.new_page()
-        
-        logger.info("✅ Playwright browser initialized successfully")
-        return playwright, browser, context, page
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize Playwright browser: {str(e)}")
-        logger.error("Make sure you have installed the browser with: python3 -m playwright install chromium")
-        raise Exception(f"Failed to initialize Playwright browser: {str(e)}")
+from extractor_common import (
+    build_log_file_path,
+    build_output_file_path,
+    configure_logger,
+    display_path,
+    load_events,
+    resolve_primary_csv_path,
+    setup_browser,
+)
 
 def extract_history_data(page, detail_id, logger):
     """
@@ -215,7 +184,7 @@ def extract_event_history(page, base_url, detail_id, logger):
         logger.debug(f"Failed to extract history for detail ID {detail_id}: {str(e)}")
         return None
 
-def extract_all_history(csv_file="forexfactory_calendar.csv", base_date_param="day=oct6.2025"):
+def extract_all_history(csv_file=None, base_date_param="day=oct6.2025"):
     """
     Main function to extract history for all events
     
@@ -223,33 +192,19 @@ def extract_all_history(csv_file="forexfactory_calendar.csv", base_date_param="d
         csv_file (str): Path to the main CSV file with events
         base_date_param (str): Date parameter for the base URL
     """
-    # Setup logging
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('history_extractor.log'),
-            logging.StreamHandler()
-        ]
-    )
-    logger = logging.getLogger(__name__)
-    
-    # Check if CSV file exists
-    if not os.path.exists(csv_file):
-        logger.error(f"❌ CSV file '{csv_file}' not found. Please run the main scraper first.")
+    logger = configure_logger(__name__, build_log_file_path("history_extractor"))
+
+    resolved_csv_file = resolve_primary_csv_path(csv_file, base_date_param)
+    if not resolved_csv_file:
+        missing_file = csv_file or f"{base_date_param}.csv"
+        logger.error(f"❌ CSV file '{missing_file}' not found. Please run the main scraper first.")
         return
     
-    logger.info(f"Starting history extraction from {csv_file}")
+    logger.info(f"Starting history extraction from {display_path(resolved_csv_file)}")
     
     # Read the main CSV file
-    events = []
     try:
-        with open(csv_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            reader.fieldnames = [field.strip() if field else field for field in reader.fieldnames]
-            for row in reader:
-                cleaned_row = {key.strip(): value.strip() if value else value for key, value in row.items()}
-                events.append(cleaned_row)
+        events = load_events(resolved_csv_file)
         logger.info(f"Found {len(events)} events to process")
     except Exception as e:
         logger.error(f"❌ Failed to read CSV file: {str(e)}")
@@ -272,7 +227,7 @@ def extract_all_history(csv_file="forexfactory_calendar.csv", base_date_param="d
             
             # Create fresh browser session for each event
             logger.debug(f"Creating new browser session for event {i+1}/{len(events)}")
-            playwright, browser, context, page = setup_browser(logger)
+            playwright, browser, context, page = setup_browser(logger, "history extraction")
             
             try:
                 # Extract history with fresh session
@@ -324,8 +279,8 @@ def extract_all_history(csv_file="forexfactory_calendar.csv", base_date_param="d
         
         # Save history to CSV
         if all_history:
-            history_file = f"{base_date_param}_history.csv"
-            logger.info(f"Saving history data to {history_file}...")
+            history_file = build_output_file_path(base_date_param, "_history")
+            logger.info(f"Saving history data to {display_path(history_file)}...")
             
             with open(history_file, 'w', newline='', encoding='utf-8') as f:
                 fieldnames = ['detail_id', 'event_name', 'event_date', 'event_currency', 
@@ -334,8 +289,9 @@ def extract_all_history(csv_file="forexfactory_calendar.csv", base_date_param="d
                 writer.writeheader()
                 writer.writerows(all_history)
             
-            logger.info(f"✅ Successfully saved {len(all_history)} history records to {history_file}")
-            print(f"✅ Extracted {len(all_history)} history records and saved to {history_file}")
+            history_display = display_path(history_file)
+            logger.info(f"✅ Successfully saved {len(all_history)} history records to {history_display}")
+            print(f"✅ Extracted {len(all_history)} history records and saved to {history_display}")
         else:
             logger.warning("⚠️ No history data found to save")
             print("⚠️ No history data found to save")
@@ -353,17 +309,15 @@ if __name__ == "__main__":
         epilog="""
 Examples:
   python3 history_extractor.py
-  python3 history_extractor.py --csv-file events.csv
   python3 history_extractor.py --date-param "day=oct22.2025"
-  python3 history_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+    python3 history_extractor.py --csv-file outputs/oct-22-2025/day=oct22.2025.csv --date-param "day=oct22.2025"
         """
     )
     
     parser.add_argument(
         '--csv-file',
         type=str,
-        help='Path to the CSV file containing events with detail IDs',
-        default="forexfactory_calendar.csv"
+        help='Path to the CSV file containing events with detail IDs (defaults to the dated output CSV)'
     )
     
     parser.add_argument(

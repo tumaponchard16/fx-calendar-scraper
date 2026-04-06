@@ -12,50 +12,19 @@ Author: Educational Project
 License: Educational Use Only
 """
 
-from playwright.sync_api import sync_playwright
 import time
 import csv
-import logging
 import argparse
-import sys
-import os
 
-def setup_browser(logger):
-    """Setup Playwright browser with options"""
-    
-    logger.info("Initializing Playwright browser for detail extraction...")
-    
-    try:
-        playwright = sync_playwright().start()
-        
-        # Launch browser with options
-        browser = playwright.chromium.launch(
-            headless=True,  # Use headless mode for detail extraction
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--disable-infobars",
-                "--disable-extensions",
-                "--no-sandbox",
-                "--disable-dev-shm-usage"
-            ]
-        )
-        
-        # Create a new context (like an incognito window)
-        context = browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        )
-        
-        # Create a new page
-        page = context.new_page()
-        
-        logger.info("✅ Playwright browser initialized successfully")
-        return playwright, browser, context, page
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize Playwright browser: {str(e)}")
-        logger.error("Make sure you have installed the browser with: python3 -m playwright install chromium")
-        raise Exception(f"Failed to initialize Playwright browser: {str(e)}")
+from extractor_common import (
+    build_log_file_path,
+    build_output_file_path,
+    configure_logger,
+    display_path,
+    load_events,
+    resolve_primary_csv_path,
+    setup_browser,
+)
 
 def extract_event_specs(page, base_url, detail_id, logger):
     """
@@ -208,7 +177,7 @@ def extract_event_specs(page, base_url, detail_id, logger):
         logger.debug(f"Failed to extract specs for detail ID {detail_id}: {str(e)}")
         return None
 
-def extract_event_details(csv_file="forexfactory_calendar.csv", base_date_param="day=oct6.2025"):
+def extract_event_details(csv_file=None, base_date_param="day=oct6.2025"):
     """
     Main function to extract detailed specifications for all events
     
@@ -216,35 +185,19 @@ def extract_event_details(csv_file="forexfactory_calendar.csv", base_date_param=
         csv_file (str): Path to the main CSV file with events
         base_date_param (str): Date parameter for the base URL
     """
-    # Setup logging
-    logging.basicConfig(
-        level=logging.DEBUG,  # Changed to DEBUG to see more details
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('detail_extractor.log'),
-            logging.StreamHandler()
-        ]
-    )
-    logger = logging.getLogger(__name__)
-    
-    # Check if CSV file exists
-    if not os.path.exists(csv_file):
-        logger.error(f"❌ CSV file '{csv_file}' not found. Please run the main scraper first.")
+    logger = configure_logger(__name__, build_log_file_path("detail_extractor"))
+
+    resolved_csv_file = resolve_primary_csv_path(csv_file, base_date_param)
+    if not resolved_csv_file:
+        missing_file = csv_file or f"{base_date_param}.csv"
+        logger.error(f"❌ CSV file '{missing_file}' not found. Please run the main scraper first.")
         return
     
-    logger.info(f"Starting detail extraction from {csv_file}")
+    logger.info(f"Starting detail extraction from {display_path(resolved_csv_file)}")
     
     # Read the main CSV file
-    events = []
     try:
-        with open(csv_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            # Clean up the fieldnames to remove extra spaces
-            reader.fieldnames = [field.strip() if field else field for field in reader.fieldnames]
-            for row in reader:
-                # Clean up the row data
-                cleaned_row = {key.strip(): value.strip() if value else value for key, value in row.items()}
-                events.append(cleaned_row)
+        events = load_events(resolved_csv_file)
         logger.info(f"Found {len(events)} events to process")
     except Exception as e:
         logger.error(f"❌ Failed to read CSV file: {str(e)}")
@@ -267,7 +220,7 @@ def extract_event_details(csv_file="forexfactory_calendar.csv", base_date_param=
             
             # Create a fresh browser session for each event to avoid caching issues
             logger.debug(f"Creating new browser session for event {i+1}/{len(events)}")
-            playwright, browser, context, page = setup_browser(logger)
+            playwright, browser, context, page = setup_browser(logger, "detail extraction")
             
             try:
                 # Extract specs for this event with fresh session
@@ -315,8 +268,10 @@ def extract_event_details(csv_file="forexfactory_calendar.csv", base_date_param=
         
         # Save detailed specs to CSV with filename based on date parameter
         if all_specs:
-            output_file = f"{base_date_param}_details.csv"
-            logger.info(f"Saving detailed specifications to {output_file} (vertical block format)...")
+            output_file = build_output_file_path(base_date_param, "_details")
+            logger.info(
+                f"Saving detailed specifications to {display_path(output_file)} (vertical block format)..."
+            )
             
             # Create vertical block format: each event as a self-contained block
             with open(output_file, 'w', newline='', encoding='utf-8') as f:
@@ -335,8 +290,9 @@ def extract_event_details(csv_file="forexfactory_calendar.csv", base_date_param=
                     if event_num < len(all_specs):
                         writer.writerow(['---', '---'])
             
-            logger.info(f"✅ Successfully saved {len(all_specs)} events (vertical block format) to {output_file}")
-            print(f"✅ Extracted {len(all_specs)} event details and saved to {output_file}")
+            output_display = display_path(output_file)
+            logger.info(f"✅ Successfully saved {len(all_specs)} events (vertical block format) to {output_display}")
+            print(f"✅ Extracted {len(all_specs)} event details and saved to {output_display}")
         else:
             logger.warning("⚠️ No event details found to save")
             print("⚠️ No event details found to save")
@@ -364,8 +320,7 @@ Examples:
     parser.add_argument(
         '--csv-file',
         type=str,
-        help='Path to the CSV file containing events with detail IDs (default: forexfactory_calendar.csv)',
-        default="forexfactory_calendar.csv"
+        help='Path to the CSV file containing events with detail IDs (defaults to the dated output CSV)'
     )
     
     parser.add_argument(

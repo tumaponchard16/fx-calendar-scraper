@@ -4,22 +4,22 @@
 
 ### 📊 History Extractor
 ```bash
-python3 history_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025"
 ```
-**Output:** `day=oct22.2025_history.csv`  
+**Output:** `outputs/oct-22-2025/day=oct22.2025_history.csv`  
 **Data:** date, date_url, actual, forecast, previous
 
 ### 📰 News Extractor
 ```bash
-python3 news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 news_extractor.py --date-param "day=oct22.2025"
 ```
-**Output:** `day=oct22.2025_news.csv`  
+**Output:** `outputs/oct-22-2025/day=oct22.2025_news.csv`  
 **Data:** title, url, snippet, link_type
 
 ## Run Both
 ```bash
-python3 history_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025" && \
-python3 news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025" && \
+python3 news_extractor.py --date-param "day=oct22.2025"
 ```
 
 ## Why Separate?
@@ -37,4 +37,6 @@ python3 news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.
 
 ---
 
-See `SEPARATED_EXTRACTORS.md` for full documentation.
+Logs are written to `outputs/logs/`.
+
+See [separated-extractors.md](separated-extractors.md) for full documentation.

@@ -8,6 +8,44 @@ A Python web scraper that extracts economic events data from ForexFactory's econ
 
 ## 🚀 Quick Start
 
+### Python Environment
+
+Create and activate a virtual environment before installing dependencies or running the scraper:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+If you already have the virtual environment, activate it with:
+
+```bash
+source .venv/bin/activate
+```
+
+### Output Layout
+
+Generated files are stored under `outputs/` and grouped by date:
+
+```text
+outputs/
+├── oct-18-2025/
+│   ├── day=oct18.2025.csv
+│   └── day=oct18.2025_details.csv
+└── logs/
+  ├── scraper.log
+  └── detail_extractor.log
+```
+
+### Run Tests
+
+Run the standard unit test suite with:
+
+```bash
+python3 -m unittest discover -s tests
+```
+
 ```bash
 # Default (October 2, 2025)
 python3 scraper.py
@@ -28,13 +66,77 @@ python3 detail_extractor.py --date-param "day=oct6.2025"
 ```bash
 python3 scraper.py --url-params "day=oct18.2025"
 ```
-Generates: `day=oct18.2025.csv` with basic event data (filename matches URL params)
+Generates: `outputs/oct-18-2025/day=oct18.2025.csv` with basic event data
 
 ### Step 2: Extract Detailed Specifications  
 ```bash
-python3 detail_extractor.py --csv-file "day=oct18.2025.csv" --date-param "day=oct18.2025"
+python3 detail_extractor.py --date-param "day=oct18.2025"
 ```
-Generates: `day=oct18.2025_details.csv` with comprehensive specifications for ALL events in a single file
+Generates: `outputs/oct-18-2025/day=oct18.2025_details.csv` with comprehensive specifications for all events
+
+## 🧭 Generation Order
+
+For a specific date such as `day=oct22.2025`, the sequence is:
+
+1. Run `scraper.py` first. This creates the base CSV that contains the event rows and `detail` IDs.
+2. After that, `detail_extractor.py`, `history_extractor.py`, and `news_extractor.py` can be run in any order.
+3. `history_news_extractor.py` is an alternative to running `history_extractor.py` and `news_extractor.py` separately.
+
+Required first step:
+
+```bash
+python3 scraper.py --url-params "day=oct22.2025"
+```
+
+Then any of these follow-up commands are valid:
+
+```bash
+python3 detail_extractor.py --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025"
+python3 news_extractor.py --date-param "day=oct22.2025"
+```
+
+Or run the combined history/news extractor:
+
+```bash
+python3 history_news_extractor.py --date-param "day=oct22.2025"
+```
+
+### Recommended Sequences
+
+To generate **all four files**:
+
+```bash
+python3 scraper.py --url-params "day=oct22.2025"
+python3 detail_extractor.py --date-param "day=oct22.2025"
+python3 history_news_extractor.py --date-param "day=oct22.2025"
+```
+
+To generate **all four files with separate history/news commands**:
+
+```bash
+python3 scraper.py --url-params "day=oct22.2025"
+python3 detail_extractor.py --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025"
+python3 news_extractor.py --date-param "day=oct22.2025"
+```
+
+To generate **only history and news**:
+
+```bash
+python3 scraper.py --url-params "day=oct22.2025"
+python3 history_news_extractor.py --date-param "day=oct22.2025"
+```
+
+## 📚 Documentation
+
+- [docs/README.md](docs/README.md) - Documentation index
+- [docs/extractors/history-news-quick-start.md](docs/extractors/history-news-quick-start.md) - Combined history/news quick start
+- [docs/extractors/history-news-extractor.md](docs/extractors/history-news-extractor.md) - Combined history/news extractor reference
+- [docs/extractors/extractors-quick-ref.md](docs/extractors/extractors-quick-ref.md) - Separate history/news extractor quick reference
+- [docs/extractors/separated-extractors.md](docs/extractors/separated-extractors.md) - Separate extractor workflow details
+
+Sample CSVs used for manual checks live under `samples/`.
 
 ## 📊 Features
 
@@ -44,21 +146,22 @@ Generates: `day=oct18.2025_details.csv` with comprehensive specifications for AL
 - ✅ **Dynamic header capture** - Automatically extracts ALL unique specification fields
 - ✅ **Detailed specifications extraction** - Extract complete event specifications
 - ✅ **Single file output** - All events with all unique headers in one CSV
-- ✅ **Dynamic filenames** - Organized by URL parameters (e.g., `day=oct18.2025.csv`)
+- ✅ **Organized outputs** - Generated files are grouped in `outputs/<date>/`
 - ✅ **Comprehensive logging** - Debug and track scraping progress
 - ✅ **CSV export** - Clean, structured data output
 - ✅ **Complete event details**: Date, time, currency, impact, actual/forecast/previous values, detail IDs
 
 ## 🎯 How Different Event Headers Are Handled
 
-**The detail extractor automatically captures ALL unique specification headers across different events:**
+**The detail extractor preserves event-specific fields without requiring a fixed schema:**
 
-- **Example**: If Event A has 7 spec fields and Event B has 9 spec fields, the output CSV will contain **all unique columns** (potentially 9+)
-- **Single file**: All events are saved in one CSV (e.g., `day=oct18.2025_details.csv`)
-- **Empty cells**: Events missing certain fields show as empty cells
-- **No pre-configuration needed**: The system dynamically detects and includes all specification headers
+- **Example**: If Event A has 7 spec fields and Event B has 9 spec fields, both events are still stored in the same details file.
+- **Long format**: Each event is written as its own block of `field_name` and `field_value` rows instead of forcing every event into one wide row.
+- **No empty cells**: Missing fields are simply absent from that event's block.
+- **Single file**: All events are saved in one CSV (for example, `outputs/oct-18-2025/day=oct18.2025_details.csv`).
+- **No pre-configuration needed**: The extractor reads whatever specification fields are present for that event.
 
-For detailed information about header handling, see [DETAILS_EXTRACTION_INFO.md](DETAILS_EXTRACTION_INFO.md)
+For additional extractor guides, see [docs/README.md](docs/README.md).
 
 ## ⚙️ Usage Examples
 
@@ -88,8 +191,8 @@ python3 scraper.py --url-params "week=oct2.2025"
 # Show help for detail extractor
 python3 detail_extractor.py --help
 
-# Default: Use forexfactory_calendar.csv with day=oct6.2025
-python3 detail_extractor.py
+# Default: use the dated CSV inside outputs/
+python3 detail_extractor.py --date-param "day=oct6.2025"
 
 # Custom CSV file
 python3 detail_extractor.py --csv-file my_events.csv
@@ -105,7 +208,7 @@ python3 detail_extractor.py --csv-file events.csv --date-param "day=nov15.2025"
 
 ### Headless Mode
 
-Enable headless mode by changing in `setup_browser()`:
+Enable headless mode by changing `headless=True` in `extractor_common.py`:
 
 ```python
 headless=True  # Set to True for headless mode
@@ -113,16 +216,30 @@ headless=True  # Set to True for headless mode
 
 ## 📄 Output
 
-The scraper generates dynamically named files based on your URL parameters:
+The scraper generates dated output folders under `outputs/` based on your URL parameters:
+
+### What Each Generated File Means
+
+- **`day=oct22.2025.csv`**: the master event list from the calendar scraper. This file must exist before the other extractors can run.
+- **`day=oct22.2025_details.csv`**: event specifications such as description, source, speaker, and other metadata from `detail_extractor.py`.
+- **`day=oct22.2025_history.csv`**: historical releases, dates, actual values, forecasts, previous values, and date URLs from `history_extractor.py` or `history_news_extractor.py`.
+- **`day=oct22.2025_news.csv`**: related article links and snippets from `news_extractor.py` or `history_news_extractor.py`.
+
+The `details`, `history`, and `news` files all depend on the base `day=...csv` file from `scraper.py`, but they do **not** depend on each other.
 
 **Basic Scraper Output:**
-- **`day=oct18.2025.csv`** - Basic economic events data (filename = URL params)
-- **`week=oct21.2025.csv`** - Week's events (if using week parameter)
-- **`scraper.log`** - Main scraper execution logs
+- **`outputs/oct-18-2025/day=oct18.2025.csv`** - Basic economic events data
+- **`outputs/oct-21-2025/week=oct21.2025.csv`** - Week's events (if using week parameter)
+- **`outputs/logs/scraper.log`** - Main scraper execution logs
 
 **Detail Extractor Output:**
-- **`day=oct18.2025_details.csv`** - Detailed event specifications with ALL unique headers
-- **`detail_extractor.log`** - Detail extraction logs
+- **`outputs/oct-18-2025/day=oct18.2025_details.csv`** - Detailed event specifications with all unique headers
+- **`outputs/logs/detail_extractor.log`** - Detail extraction logs
+
+**Optional History and News Output:**
+- **`outputs/oct-18-2025/day=oct18.2025_history.csv`** - Historical event values
+- **`outputs/oct-18-2025/day=oct18.2025_news.csv`** - Related news links and snippets
+- **`outputs/logs/history_extractor.log`**, **`outputs/logs/news_extractor.log`** - Extractor logs
 
 ### Basic Events CSV
 ```csv
@@ -134,7 +251,7 @@ Sat Oct 18,Tentative,USD,Low Impact,Federal Budget Balance,,,,,141671
 
 ### Detailed Specifications CSV (All Unique Headers Captured)
 
-**New Long Format**: Each row represents one field of one event, making it easy to see exactly which specifications each event has.
+**Long / vertical block format**: Each row represents one field of one event, making it easy to see exactly which specifications each event has.
 
 ```csv
 event_id,field_name,field_value
@@ -184,9 +301,12 @@ python3 query_details.py --event 2 --field speaker
 
 # List all unique fields
 python3 query_details.py --list-fields
+
+# Query a specific details file from outputs/
+python3 query_details.py --file outputs/oct-18-2025/day=oct18.2025_details.csv
 ```
 
-**Note**: The details CSV uses **long format** where each row represents one field of one event. This ensures each event has its own individual headers, making it perfect for events with different specifications. Events with different numbers of specification fields are all included without any empty cells.
+**Note**: The details CSV uses **long format** where each row represents one field of one event. `query_details.py` searches `outputs/*/*_details.csv` by default and still accepts a custom `--file` path.
 
 ### Detail URLs
 Use the detail ID to access specific event details:
@@ -209,6 +329,12 @@ https://www.forexfactory.com/calendar?day=oct6.2025#detail=140544
 - **Default Target**: October 2, 2025 (configurable via command line)
 - **Performance**: ~11-13 seconds per event for detail extraction
 
+## ✅ Testing
+
+- Unit tests cover shared path/output helpers and the details CSV query parser.
+- Run them with `python3 -m unittest discover -s tests` or `python3 -m unittest discover -s tests -v` for verbose output.
+- Browser scraping changes should still be validated by running the affected script for a concrete date param and checking the generated files under `outputs/`.
+
 ## 🚨 Troubleshooting
 
 1. **Browser installation issues**:
@@ -216,9 +342,9 @@ https://www.forexfactory.com/calendar?day=oct6.2025#detail=140544
    python3 -m playwright install chromium
    ```
 
-2. **Missing CSV file error**: Run the main scraper first to generate `forexfactory_calendar.csv`
+2. **Missing CSV file error**: Run the main scraper first to generate `outputs/<date>/<date_param>.csv`
 3. **Permission errors**: Ensure proper file permissions
-4. **Debug info**: Check `scraper.log` and `detail_extractor.log` for detailed error information
+4. **Debug info**: Check files in `outputs/logs/` for detailed error information
 
 ## � License
 

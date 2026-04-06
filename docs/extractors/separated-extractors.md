@@ -8,7 +8,7 @@ The history and news extraction functionality has been split into two separate, 
 ### 1. `history_extractor.py`
 Dedicated script for extracting historical data (past releases with actual/forecast/previous values).
 
-**Output:** `{date_param}_history.csv`
+**Output:** `outputs/<date-folder>/{date_param}_history.csv`
 
 **Columns:**
 - `detail_id` - Event detail ID
@@ -21,12 +21,12 @@ Dedicated script for extracting historical data (past releases with actual/forec
 - `forecast` - Forecasted value
 - `previous` - Previous period value
 
-**Log file:** `history_extractor.log`
+**Log file:** `outputs/logs/history_extractor.log`
 
 ### 2. `news_extractor.py`
 Dedicated script for extracting related news and articles.
 
-**Output:** `{date_param}_news.csv`
+**Output:** `outputs/<date-folder>/{date_param}_news.csv`
 
 **Columns:**
 - `detail_id` - Event detail ID
@@ -38,7 +38,7 @@ Dedicated script for extracting related news and articles.
 - `snippet` - Brief excerpt (when available)
 - `link_type` - Type of link (`news`, `related`, etc.)
 
-**Log file:** `news_extractor.log`
+**Log file:** `outputs/logs/news_extractor.log`
 
 ## Benefits of Separation
 
@@ -68,34 +68,57 @@ Dedicated script for extracting related news and articles.
 
 ```bash
 # Extract only history
-python3 history_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025"
 
 # Extract only news
-python3 news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 news_extractor.py --date-param "day=oct22.2025"
+```
+
+## Generation Order
+
+The order is:
+
+1. Run `scraper.py` first.
+2. After that, `detail_extractor.py`, `history_extractor.py`, and `news_extractor.py` can be run in any order.
+3. `history_extractor.py` and `news_extractor.py` do not depend on `detail_extractor.py`.
+4. If you use `history_news_extractor.py`, use it instead of the separate history/news commands.
+
+Required first step:
+
+```bash
+python3 scraper.py --url-params "day=oct22.2025"
+```
+
+Valid follow-up commands:
+
+```bash
+python3 detail_extractor.py --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025"
+python3 news_extractor.py --date-param "day=oct22.2025"
 ```
 
 ### Complete Workflow
 
 ```bash
 # Step 1: Scrape calendar
-python3 scraper.py --url "https://www.forexfactory.com/calendar?day=oct22.2025"
+python3 scraper.py --url-params "day=oct22.2025"
 
 # Step 2: Extract detailed specs
-python3 detail_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 detail_extractor.py --date-param "day=oct22.2025"
 
 # Step 3a: Extract history (SEPARATE)
-python3 history_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025"
 
 # Step 3b: Extract news (SEPARATE)
-python3 news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 news_extractor.py --date-param "day=oct22.2025"
 ```
 
 ### Run Both Sequentially
 
 ```bash
 # Extract both history and news in sequence
-python3 history_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025" && \
-python3 news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025" && \
+python3 news_extractor.py --date-param "day=oct22.2025"
 ```
 
 ## Command-line Arguments
@@ -104,7 +127,7 @@ Both scripts accept the same arguments:
 
 | Argument | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `--csv-file` | Input CSV with events and detail IDs | `forexfactory_calendar.csv` | `day=oct22.2025.csv` |
+| `--csv-file` | Input CSV with events and detail IDs | `outputs/<date-folder>/{date_param}.csv` | `outputs/oct-22-2025/day=oct22.2025.csv` |
 | `--date-param` | Date parameter for URL construction | `day=oct6.2025` | `day=oct22.2025` |
 
 ## Test Results
@@ -112,12 +135,12 @@ Both scripts accept the same arguments:
 ### History Extractor
 - ✅ 2 events tested
 - ✅ 6 history records extracted
-- ✅ Output: `day=oct22.2025_history.csv`
+- ✅ Output: `outputs/oct-22-2025/day=oct22.2025_history.csv`
 
 ### News Extractor
 - ✅ 2 events tested
 - ✅ 2 news items extracted
-- ✅ Output: `day=oct22.2025_news.csv`
+- ✅ Output: `outputs/oct-22-2025/day=oct22.2025_news.csv`
 
 ## File Outputs
 
@@ -125,27 +148,36 @@ Both scripts accept the same arguments:
 
 After running the complete workflow:
 ```
-day=oct22.2025.csv                  # Basic calendar data (scraper.py)
-day=oct22.2025_details.csv          # Event specifications (detail_extractor.py)
-day=oct22.2025_history.csv          # Historical data (history_extractor.py) ⭐ NEW
-day=oct22.2025_news.csv             # Related news (news_extractor.py) ⭐ NEW
+outputs/
+└── oct-22-2025/
+	├── day=oct22.2025.csv          # Basic calendar data (scraper.py)
+	├── day=oct22.2025_details.csv  # Event specifications (detail_extractor.py)
+	├── day=oct22.2025_history.csv  # Historical data (history_extractor.py) ⭐ NEW
+	└── day=oct22.2025_news.csv     # Related news (news_extractor.py) ⭐ NEW
 ```
 
 All files linked by `detail_id` field.
+
+### What The Files Mean
+
+- `day=oct22.2025.csv`: base event list from the calendar scraper.
+- `day=oct22.2025_details.csv`: event descriptions and specification fields.
+- `day=oct22.2025_history.csv`: historical releases and values for each event.
+- `day=oct22.2025_news.csv`: related news/article links for each event.
 
 ## Migration from Combined Script
 
 ### Old Way (Combined)
 ```bash
-python3 history_news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 history_news_extractor.py --date-param "day=oct22.2025"
 ```
 Output: Both `_history.csv` and `_news.csv` files
 
 ### New Way (Separated)
 ```bash
 # Run separately
-python3 history_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
-python3 news_extractor.py --csv-file day=oct22.2025.csv --date-param "day=oct22.2025"
+python3 history_extractor.py --date-param "day=oct22.2025"
+python3 news_extractor.py --date-param "day=oct22.2025"
 ```
 Output: Same files, but more control
 
@@ -175,12 +207,12 @@ Output: Same files, but more control
 
 ### Combined Script (Old)
 - Time: ~13 seconds per event (both extractions)
-- Logs: Single `history_news_extractor.log`
+- Logs: Single `outputs/logs/history_news_extractor.log`
 - Network: All requests in one run
 
 ### Separated Scripts (New)
 - Time: ~7 seconds per event (each script)
-- Logs: Separate logs for debugging
+- Logs: Separate files in `outputs/logs/` for debugging
 - Network: Can skip what you don't need
 
 **Example:** If you only need history:
@@ -192,6 +224,7 @@ Output: Same files, but more control
 ### Shared Components
 Both scripts share:
 - Browser setup function
+- Shared path and logger helpers in `extractor_common.py`
 - Fresh session per event
 - Conservative delays (3s/5s)
 - Error handling and logging

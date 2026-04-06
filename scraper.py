@@ -13,56 +13,17 @@ Author: Educational Project
 License: Educational Use Only
 """
 
-from playwright.sync_api import sync_playwright
-import time
-import csv
-import logging
-import subprocess
-import sys
-import re
 import argparse
+import csv
+import time
 
-import logging
-import subprocess
-import sys
-
-def setup_browser(logger):
-    """Setup Playwright browser with options"""
-    
-    logger.info("Initializing Playwright browser...")
-    
-    try:
-        playwright = sync_playwright().start()
-        
-        # Launch browser with options
-        browser = playwright.chromium.launch(
-            headless=True,  # Set to True for headless mode
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--start-maximized",
-                "--disable-infobars",
-                "--disable-extensions",
-                "--no-sandbox",
-                "--disable-dev-shm-usage"
-            ]
-        )
-        
-        # Create a new context (like an incognito window)
-        context = browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        )
-        
-        # Create a new page
-        page = context.new_page()
-        
-        logger.info("✅ Playwright browser initialized successfully")
-        return playwright, browser, context, page
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize Playwright browser: {str(e)}")
-        logger.error("Make sure you have installed the browser with: python3 -m playwright install chromium")
-        raise Exception(f"Failed to initialize Playwright browser: {str(e)}")
+from extractor_common import (
+    build_log_file_path,
+    build_output_file_path,
+    configure_logger,
+    display_path,
+    setup_browser,
+)
 
 def scrape_forexfactory_calendar(url_params=None):
     """
@@ -80,32 +41,21 @@ def scrape_forexfactory_calendar(url_params=None):
     
     Educational purpose only - use responsibly!
     """
-    # Setup logging
-    logging.basicConfig(
-        level=logging.DEBUG,  # Changed to DEBUG to see what's being skipped
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('scraper.log'),
-            logging.StreamHandler()
-        ]
-    )
-    logger = logging.getLogger(__name__)
-    
     # Build URL with custom parameters or default
     base_url = "https://www.forexfactory.com/calendar"
     if url_params:
         url = f"{base_url}?{url_params}"
-        filename = f"{url_params}.csv"
     else:
         url_params = "day=oct2.2025"  # Default to October 2, 2025
         url = f"{base_url}?{url_params}"
-        filename = f"{url_params}.csv"
+
+    output_file = build_output_file_path(url_params)
+    logger = configure_logger(__name__, build_log_file_path("scraper"))
     
     logger.info(f"Starting scraper for URL: {url}")
-    logger.info(f"Output will be saved to: {filename}")
+    logger.info(f"Output will be saved to: {display_path(output_file)}")
 
-    logger.info("Initializing Playwright browser...")
-    playwright, browser, context, page = setup_browser(logger)
+    playwright, browser, context, page = setup_browser(logger, "calendar scraping")
 
     try:
         logger.info("Navigating to ForexFactory calendar page...")
@@ -281,13 +231,14 @@ def scrape_forexfactory_calendar(url_params=None):
         # Save to CSV
         if events:
             logger.info("Saving events to CSV file...")
-            with open(filename, "w", newline="", encoding="utf-8") as f:
+            with open(output_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=events[0].keys())
                 writer.writeheader()
                 writer.writerows(events)
 
-            logger.info(f"✅ Successfully saved {len(events)} events to {filename}")
-            print(f"✅ Scraped {len(events)} events and saved to {filename}")
+            output_display = display_path(output_file)
+            logger.info(f"✅ Successfully saved {len(events)} events to {output_display}")
+            print(f"✅ Scraped {len(events)} events and saved to {output_display}")
         else:
             logger.warning("⚠️ No events found to save")
             print("⚠️ No events found to save")

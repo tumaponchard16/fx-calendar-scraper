@@ -6,12 +6,15 @@ Usage examples:
   python3 query_details.py --event 1                    # Show all fields for event 1
   python3 query_details.py --field description          # Show description for all events
   python3 query_details.py --event 2 --field speaker    # Show speaker for event 2
+    python3 query_details.py --file outputs/oct-18-2025/day=oct18.2025_details.csv
 """
 
 import csv
 import argparse
 import sys
 from collections import defaultdict
+
+from extractor_common import display_path, find_matching_files, resolve_input_file
 
 def load_details(filename):
     """Load the vertical block format CSV into a structured format"""
@@ -159,11 +162,11 @@ Examples:
   python3 query_details.py --event 1                            # Show all fields for event 1
   python3 query_details.py --field description                  # Show description for all events
   python3 query_details.py --event 2 --field speaker            # Show speaker for event 2
-  python3 query_details.py --file day=oct18.2025_details.csv    # Use specific CSV file
+    python3 query_details.py --file outputs/oct-18-2025/day=oct18.2025_details.csv
         """
     )
     
-    parser.add_argument('--file', type=str, help='CSV file to query (default: most recent *_details.csv)')
+    parser.add_argument('--file', type=str, help='CSV file to query (default: most recent outputs/*/*_details.csv)')
     parser.add_argument('--event', type=str, help='Event ID to query')
     parser.add_argument('--field', type=str, help='Field name to query')
     parser.add_argument('--list-fields', action='store_true', help='List all unique fields')
@@ -172,16 +175,20 @@ Examples:
     
     # Find the CSV file
     if args.file:
-        filename = args.file
+        resolved_file = resolve_input_file(args.file)
+        if not resolved_file:
+            print(f"❌ File '{args.file}' not found.")
+            sys.exit(1)
+        filename = str(resolved_file)
     else:
-        import glob
         import os
-        details_files = glob.glob("*_details.csv")
+        details_files = find_matching_files("*_details.csv")
         if not details_files:
             print("❌ No details CSV files found. Please specify with --file or run detail extractor first.")
             sys.exit(1)
-        filename = max(details_files, key=os.path.getmtime)
-        print(f"🔍 Using most recent file: {filename}\n")
+        latest_file = max(details_files, key=os.path.getmtime)
+        filename = str(latest_file)
+        print(f"🔍 Using most recent file: {display_path(latest_file)}\n")
     
     # Load the data
     events = load_details(filename)
