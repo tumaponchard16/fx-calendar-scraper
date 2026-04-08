@@ -1,8 +1,16 @@
 # Documentation
 
-Project guides are organized by topic instead of living in the repository root.
+Project guides are grouped by topic so the repository root stays focused on code and runnable entrypoints.
 
-## Extractors
+## Core Project Docs
+
+- [Architecture](ARCHITECTURE.md)
+- [AI Guidelines](ai-guidelines.md)
+- [Main README](../README.md)
+
+The architecture guide documents the current clean and hexagonal structure, including ports, adapters, and the composition root.
+
+## Extractor Guides
 
 - [History and News Quick Start](extractors/history-news-quick-start.md)
 - [History and News Extractor Reference](extractors/history-news-extractor.md)
@@ -12,8 +20,3 @@ Project guides are organized by topic instead of living in the repository root.
 ## Samples
 
 - [Sample CSV notes](../samples/README.md)
-
-## Project Entry Points
-
-- [Main README](../README.md)
-- [Copilot Instructions](../.github/copilot-instructions.md)

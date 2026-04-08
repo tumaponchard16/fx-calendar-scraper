@@ -1,7 +1,7 @@
 # History and News Extractor Documentation
 
 ## Overview
-`history_news_extractor.py` extracts historical data and related news for ForexFactory calendar events. This complements the detail extractor by capturing time-series data and related articles.
+The `history-news` workflow extracts historical data and related news for ForexFactory calendar events. This complements the details workflow by capturing time-series data and related articles.
 
 ## Features
 
@@ -39,9 +39,10 @@ The extractor targets the right panel of the event detail overlay:
 
 ## Installation
 
-No additional dependencies required beyond the base scraper requirements:
+Use the standard project install:
+
 ```bash
-pip install playwright
+pip install -e .
 python3 -m playwright install chromium
 ```
 
@@ -49,11 +50,17 @@ python3 -m playwright install chromium
 
 ### Basic Usage
 ```bash
-# Use default files
-python3 history_news_extractor.py
+# Use the default date parameter
+python3 -m forexcalendar_scraper history-news
 
-# Specify custom CSV and date
-python3 history_news_extractor.py --date-param "day=oct22.2025"
+# Specify a custom date parameter
+python3 -m forexcalendar_scraper history-news --date-param day=oct22.2025
+```
+
+Installed-package equivalent:
+
+```bash
+forexcalendar-history-news-extract --date-param day=oct22.2025
 ```
 
 ### Command-line Arguments
@@ -65,21 +72,21 @@ python3 history_news_extractor.py --date-param "day=oct22.2025"
 
 ## Generation Order
 
-Run `scraper.py` first. That creates the base `day=...csv` file that this extractor reads.
+Run the `scrape` workflow first. That creates the base `day=...csv` file that this extractor reads.
 
 ```bash
-python3 scraper.py --url-params "day=oct22.2025"
-python3 history_news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper scrape --date-param day=oct22.2025
+python3 -m forexcalendar_scraper history-news --date-param day=oct22.2025
 ```
 
-`history_news_extractor.py` does **not** require `day=oct22.2025_details.csv`. The details file is optional and only needed if you also want the event specification output from `detail_extractor.py`.
+The `history-news` workflow does **not** require `day=oct22.2025_details.csv`. The details file is optional and only needed if you also want the event specification output from the `details` workflow.
 
 If you want all four files for a date, a recommended sequence is:
 
 ```bash
-python3 scraper.py --url-params "day=oct22.2025"
-python3 detail_extractor.py --date-param "day=oct22.2025"
-python3 history_news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper scrape --date-param day=oct22.2025
+python3 -m forexcalendar_scraper details --date-param day=oct22.2025
+python3 -m forexcalendar_scraper history-news --date-param day=oct22.2025
 ```
 
 ## Output Files
@@ -124,10 +131,10 @@ detail_id,event_name,event_date,event_currency,title,url,snippet,link_type
 
 ### What The Files Mean Together
 
-- `day=oct22.2025.csv`: master event list from the scraper.
-- `day=oct22.2025_details.csv`: optional event specification file from `detail_extractor.py`.
-- `day=oct22.2025_history.csv`: historical release values from `history_news_extractor.py`.
-- `day=oct22.2025_news.csv`: related news links from `history_news_extractor.py`.
+- `day=oct22.2025.csv`: master event list from the `scrape` workflow.
+- `day=oct22.2025_details.csv`: optional event specification file from the `details` workflow.
+- `day=oct22.2025_history.csv`: historical release values from the `history-news` workflow.
+- `day=oct22.2025_news.csv`: related news links from the `history-news` workflow.
 
 ## Technical Details
 
@@ -190,21 +197,21 @@ detail_id,event_name,event_date,event_currency,title,url,snippet,link_type
 
 ### Complete Data Collection Pipeline
 
-1. **Main Calendar Scraper** (`scraper.py`)
+1. **Main Calendar Scraper** (`scrape`)
    ```bash
-   python3 scraper.py --url-params "day=oct22.2025"
+   python3 -m forexcalendar_scraper scrape --date-param day=oct22.2025
    ```
    Output: `outputs/oct-22-2025/day=oct22.2025.csv` (basic event data with detail IDs)
 
-2. **Detail Specifications** (`detail_extractor.py`)
+2. **Detail Specifications** (`details`)
    ```bash
-   python3 detail_extractor.py --date-param "day=oct22.2025"
+   python3 -m forexcalendar_scraper details --date-param day=oct22.2025
    ```
    Output: `outputs/oct-22-2025/day=oct22.2025_details.csv` (specs, descriptions, full detail URLs)
 
-3. **History and News** (`history_news_extractor.py`)
+3. **History and News** (`history-news`)
    ```bash
-   python3 history_news_extractor.py --date-param "day=oct22.2025"
+   python3 -m forexcalendar_scraper history-news --date-param day=oct22.2025
    ```
    Output: 
    - `outputs/oct-22-2025/day=oct22.2025_history.csv` (historical values)

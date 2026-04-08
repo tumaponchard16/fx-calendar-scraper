@@ -7,10 +7,16 @@ Extracts **historical data** (past releases with actual/forecast/previous values
 
 ```bash
 # Step 1: Get basic calendar data
-python3 scraper.py --url-params "day=oct22.2025"
+python3 -m forexcalendar_scraper scrape --date-param day=oct22.2025
 
 # Step 2: Extract history and news
-python3 history_news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper history-news --date-param day=oct22.2025
+```
+
+If you installed the project with `pip install -e .` or `pip install -e ".[dev]"`, the console-script equivalent is:
+
+```bash
+forexcalendar-history-news-extract --date-param day=oct22.2025
 ```
 
 Generated files will be written to `outputs/oct-22-2025/` and logs to `outputs/logs/`.
