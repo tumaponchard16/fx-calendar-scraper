@@ -1,12 +1,12 @@
 # Separated History and News Extractors
 
 ## Overview
-The history and news extraction functionality has been split into two separate, focused scripts for better modularity and maintainability.
+The history and news extraction functionality is available as two focused workflows for better modularity and maintainability.
 
-## Files Created
+## Commands
 
-### 1. `history_extractor.py`
-Dedicated script for extracting historical data (past releases with actual/forecast/previous values).
+### 1. `history`
+Dedicated workflow for extracting historical data (past releases with actual, forecast, and previous values).
 
 **Output:** `outputs/<date-folder>/{date_param}_history.csv`
 
@@ -23,8 +23,8 @@ Dedicated script for extracting historical data (past releases with actual/forec
 
 **Log file:** `outputs/logs/history_extractor.log`
 
-### 2. `news_extractor.py`
-Dedicated script for extracting related news and articles.
+### 2. `news`
+Dedicated workflow for extracting related news and articles.
 
 **Output:** `outputs/<date-folder>/{date_param}_news.csv`
 
@@ -68,57 +68,64 @@ Dedicated script for extracting related news and articles.
 
 ```bash
 # Extract only history
-python3 history_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper history --date-param day=oct22.2025
 
 # Extract only news
-python3 news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper news --date-param day=oct22.2025
+```
+
+Installed-package equivalents:
+
+```bash
+forexcalendar-history-extract --date-param day=oct22.2025
+forexcalendar-news-extract --date-param day=oct22.2025
 ```
 
 ## Generation Order
 
 The order is:
 
-1. Run `scraper.py` first.
-2. After that, `detail_extractor.py`, `history_extractor.py`, and `news_extractor.py` can be run in any order.
-3. `history_extractor.py` and `news_extractor.py` do not depend on `detail_extractor.py`.
-4. If you use `history_news_extractor.py`, use it instead of the separate history/news commands.
+1. Run the `scrape` workflow first.
+2. After that, `details`, `history`, and `news` can be run in any order.
+3. `history` and `news` do not depend on `details`.
+4. If you use `history-news`, use it instead of the separate history/news commands.
 
 Required first step:
 
 ```bash
-python3 scraper.py --url-params "day=oct22.2025"
+python3 -m forexcalendar_scraper scrape --date-param day=oct22.2025
 ```
 
 Valid follow-up commands:
 
 ```bash
-python3 detail_extractor.py --date-param "day=oct22.2025"
-python3 history_extractor.py --date-param "day=oct22.2025"
-python3 news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper details --date-param day=oct22.2025
+python3 -m forexcalendar_scraper history --date-param day=oct22.2025
+python3 -m forexcalendar_scraper news --date-param day=oct22.2025
 ```
 
 ### Complete Workflow
 
 ```bash
 # Step 1: Scrape calendar
-python3 scraper.py --url-params "day=oct22.2025"
+python3 -m forexcalendar_scraper scrape --date-param day=oct22.2025
 
 # Step 2: Extract detailed specs
-python3 detail_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper details --date-param day=oct22.2025
 
 # Step 3a: Extract history (SEPARATE)
-python3 history_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper history --date-param day=oct22.2025
 
 # Step 3b: Extract news (SEPARATE)
-python3 news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper news --date-param day=oct22.2025
 ```
 
 ### Run Both Sequentially
 
 ```bash
 # Extract both history and news in sequence
-python3 history_extractor.py --date-param "day=oct22.2025" && \
-python3 news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper history --date-param day=oct22.2025
+python3 -m forexcalendar_scraper news --date-param day=oct22.2025
 ```
 
 ## Command-line Arguments
@@ -150,10 +157,10 @@ After running the complete workflow:
 ```
 outputs/
 └── oct-22-2025/
-	├── day=oct22.2025.csv          # Basic calendar data (scraper.py)
-	├── day=oct22.2025_details.csv  # Event specifications (detail_extractor.py)
-	├── day=oct22.2025_history.csv  # Historical data (history_extractor.py) ⭐ NEW
-	└── day=oct22.2025_news.csv     # Related news (news_extractor.py) ⭐ NEW
+    ├── day=oct22.2025.csv          # Basic calendar data (scrape)
+    ├── day=oct22.2025_details.csv  # Event specifications (details)
+    ├── day=oct22.2025_history.csv  # Historical data (history)
+    └── day=oct22.2025_news.csv     # Related news (news)
 ```
 
 All files linked by `detail_id` field.
@@ -169,29 +176,29 @@ All files linked by `detail_id` field.
 
 ### Old Way (Combined)
 ```bash
-python3 history_news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper history-news --date-param day=oct22.2025
 ```
 Output: Both `_history.csv` and `_news.csv` files
 
 ### New Way (Separated)
 ```bash
 # Run separately
-python3 history_extractor.py --date-param "day=oct22.2025"
-python3 news_extractor.py --date-param "day=oct22.2025"
+python3 -m forexcalendar_scraper history --date-param day=oct22.2025
+python3 -m forexcalendar_scraper news --date-param day=oct22.2025
 ```
 Output: Same files, but more control
 
-**Note:** The old `history_news_extractor.py` can still be used if you prefer running both together.
+**Note:** The combined `history-news` workflow is still available if you prefer running both together.
 
 ## When to Use Each
 
-### Use `history_extractor.py` when:
+### Use `history` when:
 - 📊 Analyzing historical trends
 - 📈 Building forecast models
 - 🔢 Need actual/forecast/previous values
 - 🎯 Most common use case for data analysis
 
-### Use `news_extractor.py` when:
+### Use `news` when:
 - 📰 Building news aggregation
 - 🔗 Need related article links
 - 📝 Content analysis or sentiment tracking
@@ -224,7 +231,7 @@ Output: Same files, but more control
 ### Shared Components
 Both scripts share:
 - Browser setup function
-- Shared path and logger helpers in `extractor_common.py`
+- Shared path, logging, repository, and gateway infrastructure in `forexcalendar_scraper/`
 - Fresh session per event
 - Conservative delays (3s/5s)
 - Error handling and logging

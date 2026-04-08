@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forexcalendar-scraper"
+version = "0.1.0"
+description = "Playwright-based ForexFactory calendar scraping workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "playwright>=1.55.0",
+]
+
+[project.scripts]
+forexcalendar-scrape = "forexcalendar_scraper.cli:run_scraper_cli"
+forexcalendar-detail-extract = "forexcalendar_scraper.cli:run_detail_extractor_cli"
+forexcalendar-history-extract = "forexcalendar_scraper.cli:run_history_extractor_cli"
+forexcalendar-news-extract = "forexcalendar_scraper.cli:run_news_extractor_cli"
+forexcalendar-history-news-extract = "forexcalendar_scraper.cli:run_history_news_extractor_cli"
+forexcalendar-query-details = "forexcalendar_scraper.cli:run_query_details_cli"
+
+[project.optional-dependencies]
+dev = [
+  "black>=24.10.0",
+  "build>=1.2.2",
+  "isort>=5.13.2",
+  "pytest>=8.3.5",
+  "ruff>=0.11.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["forexcalendar_scraper*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+src_paths = ["forexcalendar_scraper", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["forexcalendar_scraper", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

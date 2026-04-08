@@ -2,9 +2,9 @@
 
 ## Architecture
 
-- Keep the repository root focused on runnable scripts and core project files. Place supporting documentation under `docs/`.
-- `scraper.py` produces the base calendar CSV. `detail_extractor.py`, `history_extractor.py`, `news_extractor.py`, and `history_news_extractor.py` build on that output.
-- Reuse `extractor_common.py` for shared browser setup, logger configuration, output-path logic, and CSV resolution instead of duplicating helper code in each script.
+- Keep the repository root focused on project metadata, high-signal docs, tests, and generated artifacts. Place runtime code under `forexcalendar_scraper/` and supporting documentation under `docs/`.
+- Use `python3 -m forexcalendar_scraper` or the console scripts in `pyproject.toml` for scrape, extract, and query workflows.
+- Reuse `forexcalendar_scraper/core/paths.py`, `forexcalendar_scraper/core/logging.py`, `forexcalendar_scraper/infrastructure/persistence/csv_repository.py`, and `forexcalendar_scraper/infrastructure/web/browser.py` instead of introducing new root-level helper modules.
 
 ## Output And File Conventions
 
@@ -21,10 +21,10 @@
 
 ## Validation
 
-- Install dependencies with `pip install -r requirements.txt` and install Playwright Chromium with `python3 -m playwright install chromium` when needed.
+- Install the project with `pip install -e .` for runtime usage and `pip install -e ".[dev]"` for development workflows. Install Playwright Chromium with `python3 -m playwright install chromium` when needed.
 - Run the standard unit test suite with `python3 -m unittest discover -s tests`.
-- Scraper behavior should still be validated by running the affected script for a concrete date param and checking the generated files under `outputs/`.
-- When changing details querying or output resolution, also verify `python3 query_details.py --list-fields` still works.
+- Scraper behavior should still be validated by running the affected command for a concrete date param and checking the generated files under `outputs/`.
+- When changing details querying or output resolution, also verify `python3 -m forexcalendar_scraper query-details --list-fields` still works.
 
 ## Documentation
 

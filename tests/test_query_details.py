@@ -1,16 +1,25 @@
-import io
 import tempfile
 import unittest
-from contextlib import redirect_stdout
 from pathlib import Path
 
-import query_details
+from forexcalendar_scraper.application.detail_query_service import DetailQueryService
+from forexcalendar_scraper.core.exceptions import InputFileResolutionError
+from forexcalendar_scraper.core.paths import PathService
+from forexcalendar_scraper.infrastructure.persistence.csv_repository import CsvRepository
 
 
-class QueryDetailsTests(unittest.TestCase):
+class DetailQueryServiceTests(unittest.TestCase):
+    @staticmethod
+    def _build_service(root_dir: Path) -> DetailQueryService:
+        return DetailQueryService(
+            path_service=PathService.from_root(root_dir),
+            csv_repository=CsvRepository(),
+        )
+
     def test_load_details_parses_vertical_block_csv(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            details_file = Path(temp_dir) / "details.csv"
+            root_dir = Path(temp_dir)
+            details_file = root_dir / "details.csv"
             details_file.write_text(
                 "event_id,1\n"
                 "detail_id,148482\n"
@@ -23,47 +32,40 @@ class QueryDetailsTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            events = query_details.load_details(details_file)
+            events = self._build_service(root_dir).load_details(details_file)
 
         self.assertEqual(events["1"]["detail_id"], "148482")
         self.assertEqual(events["1"]["description"], "Moderated discussion")
         self.assertEqual(events["2"]["event_name"], "MPC Member Breeden Speaks")
 
-    def test_load_details_exits_when_file_is_missing(self):
-        stdout_buffer = io.StringIO()
+    def test_resolve_details_file_raises_when_file_is_missing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = self._build_service(Path(temp_dir))
 
-        with self.assertRaises(SystemExit) as raised_error:
-            with redirect_stdout(stdout_buffer):
-                query_details.load_details("missing-details.csv")
+            with self.assertRaises(InputFileResolutionError) as raised_error:
+                service.resolve_details_file("missing-details.csv")
 
-        self.assertEqual(raised_error.exception.code, 1)
-        self.assertIn("missing-details.csv", stdout_buffer.getvalue())
+        self.assertIn("missing-details.csv", str(raised_error.exception))
 
     def test_list_all_events_sorts_event_ids_numerically(self):
         events = {
             "10": {"event_name": "Tenth", "event_date": "Wed Oct 22", "event_time": "1:00pm"},
             "2": {"event_name": "Second", "event_date": "Tue Oct 21", "event_time": "9:00am"},
         }
-        stdout_buffer = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._build_service(Path(temp_dir)).list_all_events(events)
 
-        with redirect_stdout(stdout_buffer):
-            query_details.list_all_events(events)
-
-        output = stdout_buffer.getvalue()
         self.assertLess(output.index("Event 2"), output.index("Event 10"))
 
-    def test_show_specific_field_prints_requested_value(self):
+    def test_show_specific_field_returns_requested_value(self):
         events = {
             "2": {
                 "event_name": "MPC Member Breeden Speaks",
                 "speaker": "Sarah Breeden",
             }
         }
-        stdout_buffer = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = self._build_service(Path(temp_dir)).show_specific_field(events, "2", "speaker")
 
-        with redirect_stdout(stdout_buffer):
-            query_details.show_specific_field(events, "2", "speaker")
-
-        output = stdout_buffer.getvalue()
         self.assertIn("MPC Member Breeden Speaks", output)
         self.assertIn("Sarah Breeden", output)
