@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Mapping
 
 
 def _read_mapping_value(row: Mapping[str, object], key: str) -> str:
@@ -25,7 +25,7 @@ class CalendarEvent:
     detail_id: str = ""
 
     @classmethod
-    def from_mapping(cls, row: Mapping[str, object]) -> "CalendarEvent":
+    def from_mapping(cls, row: Mapping[str, object]) -> CalendarEvent:
         return cls(
             date=_read_mapping_value(row, "date"),
             time=_read_mapping_value(row, "time"),
@@ -91,7 +91,7 @@ class HistoryRecord:
     event_date: str = ""
     event_currency: str = ""
 
-    def with_event_context(self, event: CalendarEvent) -> "HistoryRecord":
+    def with_event_context(self, event: CalendarEvent) -> HistoryRecord:
         return replace(
             self,
             event_name=event.name,
@@ -124,7 +124,7 @@ class NewsItem:
     event_date: str = ""
     event_currency: str = ""
 
-    def with_event_context(self, event: CalendarEvent) -> "NewsItem":
+    def with_event_context(self, event: CalendarEvent) -> NewsItem:
         return replace(
             self,
             event_name=event.name,
@@ -161,3 +161,30 @@ class CommandResult:
     skipped_events: int = 0
     written_counts: dict[str, int] = field(default_factory=dict)
     output_files: dict[str, Path] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class StoredCalendarEvent:
+    id: int
+    source_event_key: str
+    date_param: str
+    date: str = ""
+    time: str = ""
+    currency: str = ""
+    impact: str = ""
+    name: str = ""
+    actual: str = ""
+    forecast: str = ""
+    previous: str = ""
+    detail_id: str = ""
+    output_file: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass(slots=True)
+class StoredEventAggregate:
+    event: StoredCalendarEvent
+    details: DetailBlock | None = None
+    history: list[HistoryRecord] = field(default_factory=list)
+    news: list[NewsItem] = field(default_factory=list)

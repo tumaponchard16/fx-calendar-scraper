@@ -19,6 +19,7 @@ The codebase follows a pragmatic clean and hexagonal architecture under `forexca
 
 ```text
 forexcalendar_scraper/
+├── api/                        FastAPI driver adapter and response models
 ├── cli/                        Driver adapters and unified CLI entrypoints
 ├── application/                Application use cases
 ├── domain/                     Domain dataclasses
@@ -55,6 +56,15 @@ pip install -e ".[dev]"
 python3 -m playwright install chromium
 ```
 
+### API And PostgreSQL Install
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[server,dev]"
+python3 -m playwright install chromium
+```
+
 Dependencies are declared in `pyproject.toml`, and the project intentionally uses that file as the single packaging source of truth.
 
 ### Environment Configuration
@@ -66,6 +76,8 @@ cp .env.example .env
 ```
 
 The application will read `.env` automatically if it exists.
+
+To enable the API-backed database store, set `FOREXFACTORY_POSTGRES_ENABLED=true` and provide `FOREXFACTORY_POSTGRES_DSN`.
 
 ## Common Workflows
 
@@ -107,6 +119,16 @@ python3 -m forexcalendar_scraper query-details --event 1
 forexcalendar-query-details --event 1 --field description
 ```
 
+### FastAPI Server
+
+```bash
+forexcalendar-api
+forexcalendar-api --host 0.0.0.0 --port 8080
+python3 -m forexcalendar_scraper serve-api --reload
+```
+
+The FastAPI app exposes OpenAPI at `/openapi.json`, Swagger UI at `/docs`, and Redoc at `/redoc`.
+
 ## Output Layout
 
 Generated CSV files are grouped by date parameter under `outputs/<mon-dd-yyyy>/`.
@@ -127,6 +149,8 @@ outputs/
 ```
 
 The base `day=...csv` file must exist before detail, history, or news extraction can run.
+
+When PostgreSQL is enabled, the same workflows continue writing CSV outputs and also upsert related data into `calendar_events`, `event_details`, `event_history_records`, and `event_news_items`.
 
 ## Testing And Quality
 
@@ -163,6 +187,8 @@ isort --check-only .
 - `forexcalendar_scraper/ports/` defines the inbound expectations that outbound adapters must satisfy.
 - `forexcalendar_scraper/bootstrap.py` is the composition root that wires concrete adapters into use cases.
 - `forexcalendar_scraper/infrastructure/web/forexfactory_gateway.py` hides browser lifecycle and Playwright details behind a single gateway port.
+- `forexcalendar_scraper/api/` adds a FastAPI driver adapter for Swagger/OpenAPI access to workflows and stored events.
+- `forexcalendar_scraper/infrastructure/persistence/postgres_event_store.py` provides optional PostgreSQL persistence in parallel with CSV outputs.
 - CLI entrypoints live in `forexcalendar_scraper/cli/` and `pyproject.toml`, not as root wrapper scripts.
 - Details are stored in a vertical block CSV format to support variable field sets per event.
 - Configuration is centralized in `forexcalendar_scraper/core/config.py` and can be overridden with environment variables.

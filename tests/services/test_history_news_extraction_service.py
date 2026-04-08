@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import logging
 
+from forexcalendar_scraper.application.history_news_extraction_service import (
+    HistoryNewsExtractionService,
+)
 from forexcalendar_scraper.core.config import Settings
 from forexcalendar_scraper.core.paths import PathService
-from forexcalendar_scraper.domain.entities import CalendarEvent, HistoryNewsBundle, HistoryRecord, NewsItem
+from forexcalendar_scraper.domain.entities import (
+    CalendarEvent,
+    HistoryNewsBundle,
+    HistoryRecord,
+    NewsItem,
+)
 from forexcalendar_scraper.infrastructure.persistence.csv_repository import CsvRepository
-from forexcalendar_scraper.application.history_news_extraction_service import HistoryNewsExtractionService
 
 
 class StubHistoryNewsGateway:
@@ -46,6 +53,29 @@ class StubHistoryNewsGateway:
         return HistoryNewsBundle(history=history, news=news)
 
 
+class StubEventStore:
+    def __init__(self) -> None:
+        self.history_results: list[tuple[CalendarEvent, list[HistoryRecord]]] = []
+        self.news_results: list[tuple[CalendarEvent, list[NewsItem]]] = []
+
+    def is_enabled(self) -> bool:
+        return True
+
+    def replace_history_records(
+        self,
+        date_param: str,
+        history_results: list[tuple[CalendarEvent, list[HistoryRecord]]],
+    ) -> None:
+        self.history_results = list(history_results)
+
+    def replace_news_items(
+        self,
+        date_param: str,
+        news_results: list[tuple[CalendarEvent, list[NewsItem]]],
+    ) -> None:
+        self.news_results = list(news_results)
+
+
 def _build_test_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.handlers.clear()
@@ -58,6 +88,7 @@ def test_history_news_extraction_service_writes_both_outputs(tmp_path):
     path_service = PathService.from_root(tmp_path)
     repository = CsvRepository()
     logger = _build_test_logger("test.history_news_extractor")
+    event_store = StubEventStore()
 
     input_file = path_service.build_output_file_path("day=oct6.2025")
     repository.save_events(
@@ -79,11 +110,16 @@ def test_history_news_extraction_service_writes_both_outputs(tmp_path):
         csv_repository=repository,
         calendar_gateway=StubHistoryNewsGateway(),
         logger_factory=lambda *args, **kwargs: logger,
+        event_store=event_store,
     )
 
     result = service.run(date_param="day=oct6.2025")
 
-    history_file = path_service.build_output_file_path("day=oct6.2025", "_history", create_dir=False)
+    history_file = path_service.build_output_file_path(
+        "day=oct6.2025",
+        "_history",
+        create_dir=False,
+    )
     news_file = path_service.build_output_file_path("day=oct6.2025", "_news", create_dir=False)
     history_rows = repository.load_event_rows(history_file)
     news_rows = repository.load_event_rows(news_file)
@@ -94,3 +130,6 @@ def test_history_news_extraction_service_writes_both_outputs(tmp_path):
     assert history_rows[0]["actual"] == "0.2%"
     assert news_rows[0]["title"] == "Inflation update"
     assert news_rows[0]["event_currency"] == "USD"
+    assert event_store.history_results[0][0].detail_id == "12345"
+    assert event_store.history_results[0][1][0].actual == "0.2%"
+    assert event_store.news_results[0][1][0].title == "Inflation update"

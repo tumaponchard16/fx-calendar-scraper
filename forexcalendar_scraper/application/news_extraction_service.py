@@ -4,12 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from forexcalendar_scraper.application.event_processing import EventBatchProcessor
+from forexcalendar_scraper.application.runtime import resolve_required_input_csv
 from forexcalendar_scraper.core.config import Settings
 from forexcalendar_scraper.core.constants import DEFAULT_EXTRACTOR_DATE_PARAM
 from forexcalendar_scraper.domain.entities import CommandResult, NewsItem
-from forexcalendar_scraper.ports import CalendarGatewayPort, EventRepositoryPort, LoggerFactory, PathServicePort
-from forexcalendar_scraper.application.event_processing import EventBatchProcessor
-from forexcalendar_scraper.application.runtime import resolve_required_input_csv
+from forexcalendar_scraper.ports import (
+    CalendarGatewayPort,
+    EventRepositoryPort,
+    EventStorePort,
+    LoggerFactory,
+    PathServicePort,
+)
 
 
 @dataclass(slots=True)
@@ -19,6 +25,7 @@ class NewsExtractionService:
     csv_repository: EventRepositoryPort
     calendar_gateway: CalendarGatewayPort
     logger_factory: LoggerFactory
+    event_store: EventStorePort | None = None
 
     def run(
         self,
@@ -54,6 +61,8 @@ class NewsExtractionService:
         if news_items:
             output_file = self.path_service.build_output_file_path(date_param, "_news")
             self.csv_repository.save_news_items(output_file, news_items)
+            if self.event_store is not None and self.event_store.is_enabled():
+                self.event_store.replace_news_items(date_param, results)
             result.output_files["news"] = output_file
             result.written_counts["news"] = len(news_items)
             logger.info(

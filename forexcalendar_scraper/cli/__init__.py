@@ -2,6 +2,7 @@
 
 from forexcalendar_scraper.cli.main import (
     main,
+    run_api_cli,
     run_detail_extractor_cli,
     run_history_extractor_cli,
     run_history_news_extractor_cli,
@@ -12,6 +13,7 @@ from forexcalendar_scraper.cli.main import (
 
 __all__ = [
     "main",
+    "run_api_cli",
     "run_detail_extractor_cli",
     "run_history_extractor_cli",
     "run_history_news_extractor_cli",

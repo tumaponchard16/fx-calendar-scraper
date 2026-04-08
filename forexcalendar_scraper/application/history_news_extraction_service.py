@@ -4,12 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from forexcalendar_scraper.application.event_processing import EventBatchProcessor
+from forexcalendar_scraper.application.runtime import resolve_required_input_csv
 from forexcalendar_scraper.core.config import Settings
 from forexcalendar_scraper.core.constants import DEFAULT_EXTRACTOR_DATE_PARAM
 from forexcalendar_scraper.domain.entities import CommandResult, HistoryNewsBundle
-from forexcalendar_scraper.ports import CalendarGatewayPort, EventRepositoryPort, LoggerFactory, PathServicePort
-from forexcalendar_scraper.application.event_processing import EventBatchProcessor
-from forexcalendar_scraper.application.runtime import resolve_required_input_csv
+from forexcalendar_scraper.ports import (
+    CalendarGatewayPort,
+    EventRepositoryPort,
+    EventStorePort,
+    LoggerFactory,
+    PathServicePort,
+)
 
 
 @dataclass(slots=True)
@@ -19,6 +25,7 @@ class HistoryNewsExtractionService:
     csv_repository: EventRepositoryPort
     calendar_gateway: CalendarGatewayPort
     logger_factory: LoggerFactory
+    event_store: EventStorePort | None = None
 
     def run(
         self,
@@ -41,7 +48,11 @@ class HistoryNewsExtractionService:
         processor = EventBatchProcessor[HistoryNewsBundle](self.settings, logger)
         results, summary = processor.process(
             events,
-            lambda event: self.calendar_gateway.extract_history_news_bundle(event, date_param, logger),
+            lambda event: self.calendar_gateway.extract_history_news_bundle(
+                event,
+                date_param,
+                logger,
+            ),
             "Processed %s history/news events so far",
         )
 
@@ -74,6 +85,15 @@ class HistoryNewsExtractionService:
         else:
             logger.warning("No history data found to save")
 
+        if self.event_store is not None and self.event_store.is_enabled():
+            history_results = [
+                (event, bundle.history)
+                for event, bundle in results
+                if bundle.history
+            ]
+            if history_results:
+                self.event_store.replace_history_records(date_param, history_results)
+
         if news_items:
             news_file = self.path_service.build_output_file_path(date_param, "_news")
             self.csv_repository.save_news_items(news_file, news_items)
@@ -86,5 +106,14 @@ class HistoryNewsExtractionService:
             )
         else:
             logger.warning("No news data found to save")
+
+        if self.event_store is not None and self.event_store.is_enabled():
+            news_results = [
+                (event, bundle.news)
+                for event, bundle in results
+                if bundle.news
+            ]
+            if news_results:
+                self.event_store.replace_news_items(date_param, news_results)
 
         return result

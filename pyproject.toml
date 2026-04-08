@@ -19,11 +19,18 @@ forexcalendar-history-extract = "forexcalendar_scraper.cli:run_history_extractor
 forexcalendar-news-extract = "forexcalendar_scraper.cli:run_news_extractor_cli"
 forexcalendar-history-news-extract = "forexcalendar_scraper.cli:run_history_news_extractor_cli"
 forexcalendar-query-details = "forexcalendar_scraper.cli:run_query_details_cli"
+forexcalendar-api = "forexcalendar_scraper.cli:run_api_cli"
 
 [project.optional-dependencies]
+server = [
+  "fastapi>=0.115.12",
+  "psycopg[binary]>=3.2.6",
+  "uvicorn>=0.34.0",
+]
 dev = [
   "black>=24.10.0",
   "build>=1.2.2",
+  "httpx>=0.28.1",
   "isort>=5.13.2",
   "pytest>=8.3.5",
   "ruff>=0.11.6",

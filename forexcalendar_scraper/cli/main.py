@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Callable, Sequence
 import sys
+from collections.abc import Callable, Sequence
 
 from forexcalendar_scraper.bootstrap import (
     build_calendar_scraper_service,
@@ -14,9 +14,11 @@ from forexcalendar_scraper.bootstrap import (
     build_history_news_extraction_service,
     build_news_extraction_service,
 )
-from forexcalendar_scraper.core.constants import DEFAULT_EXTRACTOR_DATE_PARAM, DEFAULT_SCRAPER_DATE_PARAM
+from forexcalendar_scraper.core.constants import (
+    DEFAULT_EXTRACTOR_DATE_PARAM,
+    DEFAULT_SCRAPER_DATE_PARAM,
+)
 from forexcalendar_scraper.core.exceptions import ForexCalendarError
-
 
 CommandHandler = Callable[[argparse.Namespace], int]
 
@@ -56,7 +58,10 @@ def configure_extractor_parser(
     parser.add_argument(
         "--csv-file",
         type=str,
-        help="Path to the base events CSV. Defaults to the dated output file for the date parameter.",
+        help=(
+            "Path to the base events CSV. Defaults to the dated output file for "
+            "the date parameter."
+        ),
     )
     parser.add_argument(
         "--date-param",
@@ -80,7 +85,10 @@ Examples:
     parser.add_argument(
         "--file",
         type=str,
-        help="Details CSV to query. Defaults to the most recently modified *_details.csv under outputs/.",
+        help=(
+            "Details CSV to query. Defaults to the most recently modified "
+            "*_details.csv under outputs/."
+        ),
     )
     parser.add_argument("--event", type=str, help="Event ID to query.")
     parser.add_argument("--field", type=str, help="Field name to query.")
@@ -88,6 +96,24 @@ Examples:
         "--list-fields",
         action="store_true",
         help="List every unique field across all events.",
+    )
+    return parser
+
+
+def configure_api_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    parser.description = "Serve the FastAPI application with OpenAPI, Swagger, and Redoc enabled."
+    parser.epilog = """
+Examples:
+    forexcalendar-api
+    forexcalendar-api --host 0.0.0.0 --port 8080
+    python3 -m forexcalendar_scraper serve-api --reload
+"""
+    parser.add_argument("--host", type=str, help="Host interface to bind to.")
+    parser.add_argument("--port", type=int, help="Port to bind to.")
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable autoreload for local development.",
     )
     return parser
 
@@ -150,6 +176,10 @@ Examples:
 
 def build_query_details_parser() -> argparse.ArgumentParser:
     return configure_query_details_parser(_raw_text_parser(prog="forexcalendar-query-details"))
+
+
+def build_api_parser() -> argparse.ArgumentParser:
+    return configure_api_parser(_raw_text_parser(prog="forexcalendar-api"))
 
 
 def build_main_parser() -> argparse.ArgumentParser:
@@ -222,6 +252,15 @@ def build_main_parser() -> argparse.ArgumentParser:
     )
     query_parser.set_defaults(handler=_run_query_details_command)
 
+    api_parser = configure_api_parser(
+        subparsers.add_parser(
+            "serve-api",
+            help="Serve the FastAPI API and documentation.",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+    )
+    api_parser.set_defaults(handler=_run_api_command)
+
     return parser
 
 
@@ -247,7 +286,8 @@ def _run_scraper_command(args: argparse.Namespace) -> int:
 
     print(
         "Scraped "
-        f"{result.written_counts['events']} events and saved to {_display_path(service, 'events', result)}"
+        f"{result.written_counts['events']} events and saved to "
+        f"{_display_path(service, 'events', result)}"
     )
     return 0
 
@@ -261,7 +301,8 @@ def _run_detail_extractor_command(args: argparse.Namespace) -> int:
 
     print(
         "Extracted "
-        f"{result.written_counts['details']} event details and saved to {_display_path(service, 'details', result)}"
+        f"{result.written_counts['details']} event details and saved to "
+        f"{_display_path(service, 'details', result)}"
     )
     return 0
 
@@ -275,7 +316,8 @@ def _run_history_extractor_command(args: argparse.Namespace) -> int:
 
     print(
         "Extracted "
-        f"{result.written_counts['history']} history records and saved to {_display_path(service, 'history', result)}"
+        f"{result.written_counts['history']} history records and saved to "
+        f"{_display_path(service, 'history', result)}"
     )
     return 0
 
@@ -289,7 +331,8 @@ def _run_news_extractor_command(args: argparse.Namespace) -> int:
 
     print(
         "Extracted "
-        f"{result.written_counts['news']} news items and saved to {_display_path(service, 'news', result)}"
+        f"{result.written_counts['news']} news items and saved to "
+        f"{_display_path(service, 'news', result)}"
     )
     return 0
 
@@ -300,11 +343,13 @@ def _run_history_news_extractor_command(args: argparse.Namespace) -> int:
     messages: list[str] = []
     if "history" in result.output_files:
         messages.append(
-            f"{result.written_counts['history']} history records -> {_display_path(service, 'history', result)}"
+            f"{result.written_counts['history']} history records -> "
+            f"{_display_path(service, 'history', result)}"
         )
     if "news" in result.output_files:
         messages.append(
-            f"{result.written_counts['news']} news items -> {_display_path(service, 'news', result)}"
+            f"{result.written_counts['news']} news items -> "
+            f"{_display_path(service, 'news', result)}"
         )
 
     if not messages:
@@ -341,6 +386,12 @@ def _run_query_details_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_api_command(args: argparse.Namespace) -> int:
+    from forexcalendar_scraper.api import run_api_server
+
+    return run_api_server(host=args.host, port=args.port, reload=args.reload)
+
+
 def run_scraper_cli(argv: Sequence[str] | None = None) -> int:
     args = build_scraper_parser().parse_args(argv)
     return _run_with_error_handling(_run_scraper_command, args)
@@ -369,6 +420,11 @@ def run_history_news_extractor_cli(argv: Sequence[str] | None = None) -> int:
 def run_query_details_cli(argv: Sequence[str] | None = None) -> int:
     args = build_query_details_parser().parse_args(argv)
     return _run_with_error_handling(_run_query_details_command, args)
+
+
+def run_api_cli(argv: Sequence[str] | None = None) -> int:
+    args = build_api_parser().parse_args(argv)
+    return _run_with_error_handling(_run_api_command, args)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

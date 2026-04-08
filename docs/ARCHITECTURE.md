@@ -8,7 +8,8 @@ The project now uses a pragmatic clean and hexagonal architecture. The applicati
 driver adapters         application                 outbound adapters
 
 console scripts     ->  forexcalendar_scraper/cli        ->  forexcalendar_scraper/bootstrap.py
-python -m forexcalendar_scraper  forexcalendar_scraper/application  wires implementations
+FastAPI app         ->  forexcalendar_scraper/api        ->  wires implementations
+python -m forexcalendar_scraper  forexcalendar_scraper/application
 
                                                                      |
                                                                      v
@@ -18,7 +19,7 @@ python -m forexcalendar_scraper  forexcalendar_scraper/application  wires implem
                                        |                                                           |
                                        v                                                           v
                  forexcalendar_scraper/infrastructure/web      forexcalendar_scraper/infrastructure/persistence
-                 ForexFactory gateway + web adapters           CSV repository
+                 ForexFactory gateway + web adapters           CSV repository + PostgreSQL event store
 ```
 
 Dependency direction points inward. The use cases in `forexcalendar_scraper/application/` depend on contracts from `forexcalendar_scraper/ports/`, not on Playwright, concrete CSV classes, or CLI code.
@@ -48,6 +49,7 @@ The public command surface is package-first: `python -m forexcalendar_scraper` a
 ### `forexcalendar_scraper/infrastructure/persistence/` as outbound persistence adapters
 
 - `csv_repository.py`: CSV-backed persistence implementation for events, details, history, and news
+- `postgres_event_store.py`: PostgreSQL-backed event store for API reads and optional dual-write persistence
 - No CLI logic or web scraping logic belongs here
 
 ### `forexcalendar_scraper/cli/` as driver adapters
@@ -55,6 +57,12 @@ The public command surface is package-first: `python -m forexcalendar_scraper` a
 - CLI parsing and user-facing command output
 - Converts command-line input into use-case invocations
 - Handles exit codes and error display
+
+### `forexcalendar_scraper/api/` as an additional driver adapter
+
+- FastAPI routing, OpenAPI generation, Swagger UI, and Redoc
+- Thin HTTP handlers that call existing application services and the database-backed event catalog service
+- HTTP error translation for application exceptions
 
 ### `forexcalendar_scraper/core/` as supporting infrastructure
 
@@ -85,12 +93,19 @@ The public command surface is package-first: `python -m forexcalendar_scraper` a
 3. `EventBatchProcessor` iterates through events and invokes the scraping gateway port.
 4. The gateway adapter performs browser work and returns domain data objects.
 5. The use case decides which output files to write and saves them through the repository port.
+6. When PostgreSQL is enabled, the same use case also upserts related records into the database-backed event store.
 
 ### Detail Querying
 
 1. CLI resolves a details CSV path.
 2. `DetailQueryService` uses the path and repository ports to load the vertical block data.
 3. The same use case formats the requested projection for CLI display.
+
+### API Querying
+
+1. FastAPI routes enter `forexcalendar_scraper/api/`.
+2. `EventCatalogService` reads normalized event, detail, history, and news records from PostgreSQL.
+3. Response models serialize the stored aggregate for Swagger/OpenAPI clients.
 
 ## Key Design Decisions
 
@@ -101,6 +116,17 @@ The main architectural change is `forexcalendar_scraper/ports/`. Services no lon
 ### Gateway Adapter For Scraping
 
 The `ForexFactoryGateway` combines browser lifecycle and page parsing into a single outbound adapter so the application layer no longer deals with Playwright pages.
+
+### Optional PostgreSQL Event Store
+
+`postgres_event_store.py` adds a second persistence path alongside CSV files. The existing CLI workflows continue producing dated CSV outputs, and when PostgreSQL is enabled they also upsert:
+
+- `calendar_events` as the base scraped event table
+- `event_details` as the 1:1 details/specifications table with `jsonb` specs payloads
+- `event_history_records` as the 1:N history table
+- `event_news_items` as the 1:N related news table
+
+The join point is the stored event row, not the vertical CSV event ID used by the CLI query tool.
 
 ### Composition Root
 
@@ -125,6 +151,7 @@ Event detail fields vary significantly across ForexFactory events. The vertical 
 
 - Add or update a port before binding a new infrastructure dependency into a use case.
 - Implement new external dependencies in `forexcalendar_scraper/infrastructure/web/` or `forexcalendar_scraper/infrastructure/persistence/`.
+- Add new inbound delivery channels such as HTTP under `forexcalendar_scraper/api/` rather than folding transport logic into the CLI.
 - Wire new adapters in `forexcalendar_scraper/bootstrap.py`.
 - Keep CLI handlers thin and keep the repository root free of ad-hoc wrappers.
 - Do not reintroduce Playwright page handling into `forexcalendar_scraper/application/`.
