@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from forexcalendar_scraper.core.config import Settings
 from forexcalendar_scraper.core.constants import DEFAULT_EXTRACTOR_DATE_PARAM
 from forexcalendar_scraper.domain.entities import CommandResult, HistoryRecord
-from forexcalendar_scraper.ports import CalendarGatewayPort, EventRepositoryPort, LoggerFactory, PathServicePort
+from forexcalendar_scraper.ports import CalendarGatewayPort, EventRepositoryPort, EventStorePort, LoggerFactory, PathServicePort
 from forexcalendar_scraper.application.event_processing import EventBatchProcessor
 from forexcalendar_scraper.application.runtime import resolve_required_input_csv
 
@@ -19,6 +19,7 @@ class HistoryExtractionService:
     csv_repository: EventRepositoryPort
     calendar_gateway: CalendarGatewayPort
     logger_factory: LoggerFactory
+    event_store: EventStorePort | None = None
 
     def run(
         self,
@@ -58,6 +59,8 @@ class HistoryExtractionService:
         if history_records:
             output_file = self.path_service.build_output_file_path(date_param, "_history")
             self.csv_repository.save_history_records(output_file, history_records)
+            if self.event_store is not None and self.event_store.is_enabled():
+                self.event_store.replace_history_records(date_param, results)
             result.output_files["history"] = output_file
             result.written_counts["history"] = len(history_records)
             logger.info(

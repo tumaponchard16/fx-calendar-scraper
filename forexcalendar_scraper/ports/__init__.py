@@ -4,9 +4,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Callable, Iterable, Protocol
+from typing import Callable, Iterable, Protocol, Sequence
 
-from forexcalendar_scraper.domain.entities import CalendarEvent, DetailBlock, HistoryNewsBundle, HistoryRecord, NewsItem
+from forexcalendar_scraper.domain.entities import (
+    CalendarEvent,
+    DetailBlock,
+    HistoryNewsBundle,
+    HistoryRecord,
+    NewsItem,
+    StoredCalendarEvent,
+    StoredEventAggregate,
+)
 
 
 LoggerFactory = Callable[[str, Path, str | int | None], logging.Logger]
@@ -87,3 +95,44 @@ class CalendarGatewayPort(Protocol):
         date_param: str,
         logger: logging.Logger,
     ) -> HistoryNewsBundle | None: ...
+
+
+class EventStorePort(Protocol):
+    """Port for database-backed persistence and API reads."""
+
+    def is_enabled(self) -> bool: ...
+
+    def upsert_events(
+        self,
+        date_param: str,
+        events: Iterable[CalendarEvent],
+        output_file: str | None = None,
+    ) -> None: ...
+
+    def upsert_detail_blocks(
+        self,
+        date_param: str,
+        detail_results: Iterable[tuple[CalendarEvent, DetailBlock]],
+    ) -> None: ...
+
+    def replace_history_records(
+        self,
+        date_param: str,
+        history_results: Iterable[tuple[CalendarEvent, Sequence[HistoryRecord]]],
+    ) -> None: ...
+
+    def replace_news_items(
+        self,
+        date_param: str,
+        news_results: Iterable[tuple[CalendarEvent, Sequence[NewsItem]]],
+    ) -> None: ...
+
+    def list_events(
+        self,
+        date_param: str | None = None,
+        currency: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[StoredCalendarEvent]: ...
+
+    def get_event(self, event_id: int) -> StoredEventAggregate | None: ...

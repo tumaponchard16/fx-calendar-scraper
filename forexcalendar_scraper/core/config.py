@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from os import environ
 from pathlib import Path
-from typing import Mapping
 
 from forexcalendar_scraper.core.constants import DEFAULT_USER_AGENT
 
@@ -70,15 +70,22 @@ class Settings:
     request_delay_seconds: float = 3.0
     batch_delay_seconds: float = 5.0
     batch_size: int = 5
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+    api_reload: bool = False
+    postgres_enabled: bool = False
+    postgres_dsn: str = ""
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
         if env is None:
             dotenv_path = Path(__file__).resolve().parents[2] / ".env"
             source = _load_dotenv_values(dotenv_path)
             source.update(environ)
         else:
             source = dict(env)
+
+        postgres_dsn = source.get("FOREXFACTORY_POSTGRES_DSN", "").strip()
 
         return cls(
             forex_factory_base_url=source.get(
@@ -106,6 +113,15 @@ class Settings:
                 5.0,
             ),
             batch_size=_read_int(source, "FOREXFACTORY_BATCH_SIZE", 5),
+            api_host=source.get("FOREXFACTORY_API_HOST", "127.0.0.1").strip(),
+            api_port=_read_int(source, "FOREXFACTORY_API_PORT", 8000),
+            api_reload=_read_bool(source, "FOREXFACTORY_API_RELOAD", False),
+            postgres_enabled=_read_bool(
+                source,
+                "FOREXFACTORY_POSTGRES_ENABLED",
+                bool(postgres_dsn),
+            ),
+            postgres_dsn=postgres_dsn,
         )
 
 

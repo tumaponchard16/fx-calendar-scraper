@@ -11,3 +11,15 @@ class BrowserInitializationError(ForexCalendarError):
 
 class InputFileResolutionError(ForexCalendarError):
     """Raised when an expected input file cannot be resolved."""
+
+
+class EventNotFoundError(ForexCalendarError):
+    """Raised when a requested stored event does not exist."""
+
+
+class OptionalDependencyError(ForexCalendarError):
+    """Raised when an optional dependency is required but not installed."""
+
+
+class StorageUnavailableError(ForexCalendarError):
+    """Raised when a database-backed workflow is requested without a configured store."""
